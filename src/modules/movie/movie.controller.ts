@@ -4,6 +4,7 @@ import {
   ApiOperation,
   ApiNotFoundResponse,
   ApiQuery,
+  ApiTags,
 } from '@nestjs/swagger';
 import { MovieService } from './movie.service';
 import {
@@ -11,6 +12,7 @@ import {
   GetMovieResponseDTO,
 } from './dto/get-movie.dto';
 
+@ApiTags('movie')
 @Controller('movie')
 export class MovieController {
   constructor(private readonly movieService: MovieService) {}
