@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber } from 'class-validator';
-import { Movie } from 'generated/prisma';
 
 export class GetMovieFromApiQueryDTO {
   @IsString()
@@ -13,16 +12,7 @@ export class GetMovieFromApiQueryDTO {
 }
 
 export class GetMovieResponseDTO {
-  constructor();
-  constructor(movie: Movie);
-  constructor(movie?: Movie) {
-    if (movie) {
-      // TODO for request GET/movie/{movie_id}
-    }
-  }
-
-  @ApiProperty({ description: 'movide id' })
-  id: number;
+  constructor() {}
 
   @ApiProperty({ description: 'movie name' })
   name: string;

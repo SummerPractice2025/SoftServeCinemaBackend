@@ -24,7 +24,6 @@ export class TmdbService {
     ]);
 
     const movieDTO = new GetMovieResponseDTO();
-    movieDTO.id = -1;
     movieDTO.name = details.title;
     movieDTO.description = details.overview;
     movieDTO.duration = details.runtime;
@@ -101,6 +100,6 @@ export class TmdbService {
       if (cert) return cert.certification;
     }
 
-    return fallbackAdult ? '18+' : '13+';
+    return fallbackAdult ? '18+' : '0+';
   }
 }
