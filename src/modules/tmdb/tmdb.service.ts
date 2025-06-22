@@ -47,6 +47,12 @@ export class TmdbService {
     return movieDTO;
   }
 
+  public async getMovieRating(title: string, year: number): Promise<number> {
+    const movie = await this.getMovie(title, year);
+    const details = await this.tmdb.movies.details(movie.id, [], 'uk-UA');
+    return parseFloat(details.vote_average.toFixed(1));
+  }
+
   private async getMovie(title: string, year: number): Promise<Movie> {
     const searchResults = await this.tmdb.search.movies({
       query: title,

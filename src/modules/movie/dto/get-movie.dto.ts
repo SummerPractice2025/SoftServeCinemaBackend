@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber } from 'class-validator';
+import { MovieFull } from 'src/db/types';
 
 export class GetMovieFromApiQueryDTO {
   @IsString()
@@ -53,4 +54,31 @@ export class GetMovieResponseDTO {
     description: 'all studios involved in the creation of the movie',
   })
   studios: string[];
+}
+
+export class GetMovieByIDResponseDTO extends GetMovieResponseDTO {
+  constructor(movie: MovieFull, rating: number) {
+    super();
+
+    this.id = movie.id;
+    this.name = movie.name;
+    this.description = movie.description;
+    this.duration = movie.duration;
+    this.year = movie.year;
+    this.ageRate = movie.rate.rate;
+    this.rating = rating;
+    this.posterUrl = movie.thumbnail_url;
+    this.trailerUrl = movie.trailer_url;
+    this.genres = movie.genres.map((g) => g.genre.name);
+    this.directors = movie.directors.map(
+      (d) => `${d.director.first_name} ${d.director.last_name}`,
+    );
+    this.actors = movie.actors.map(
+      (a) => `${a.actor.first_name} ${a.actor.last_name}`,
+    );
+    this.studios = movie.studios.map((s) => s.studio.name);
+  }
+
+  @ApiProperty({ description: 'movie id' })
+  id: number;
 }
