@@ -8,7 +8,14 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiForbiddenResponse,
+  ApiOperation,
+  ApiTags,
+  ApiBody,
+} from '@nestjs/swagger';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
@@ -35,6 +42,18 @@ export class SessionController {
 
   @UseGuards(AccessTokenGuard)
   @Post()
+  @ApiOperation({ description: 'Adds sessions for the movie' })
+  @ApiBody({ type: [AddSessionRequestDTO] })
+  @ApiOkResponse({
+    description: 'Sessions were successfully added',
+    type: String,
+  })
+  @ApiBadRequestResponse({
+    description: 'The request contains errors or invalid data',
+  })
+  @ApiForbiddenResponse({
+    description: 'Access denied. Only admins can add sessions.',
+  })
   async addSession(
     @Body() addSessionDTOs: AddSessionRequestDTO[],
     @Request() req: { user: User },
