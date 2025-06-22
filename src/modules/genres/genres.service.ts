@@ -7,7 +7,7 @@ export class GenresService {
   async getGenres(): Promise<GetGenresResponseDTO[]> {
     const response = await prismaClient.genre.findMany({
       orderBy: {
-        id: 'asc',
+        name: 'asc',
       },
     });
     return response.map((genre) => new GetGenresResponseDTO(genre));
