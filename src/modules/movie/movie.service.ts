@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TmdbService } from './tmdb.service';
+import { TmdbService } from '../tmdb/tmdb.service';
 import { GetMovieResponseDTO } from './dto/get-movie.dto';
 
 @Injectable()

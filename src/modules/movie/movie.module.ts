@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MovieService } from './movie.service';
 import { MovieController } from './movie.controller';
-import { TmdbService } from './tmdb.service';
+import { TmdbModule } from '../tmdb/tmdb.module';
 
 @Module({
+  imports: [forwardRef(() => TmdbModule)],
   controllers: [MovieController],
-  providers: [MovieService, TmdbService],
+  providers: [MovieService],
 })
 export class MovieModule {}

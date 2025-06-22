@@ -33,6 +33,9 @@ export class GetMovieResponseDTO {
   @ApiProperty({ description: 'movie duration in minutes' })
   duration: number;
 
+  @ApiProperty({ description: 'movie release year' })
+  year: number;
+
   @ApiProperty({ description: 'age rate' })
   ageRate: string;
 
