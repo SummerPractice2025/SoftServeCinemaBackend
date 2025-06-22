@@ -9,7 +9,7 @@ export class GenresController {
   constructor(private genresService: GenresService) {}
 
   @Get()
-  @ApiOperation({ description: "Returns genre's id and name." })
+  @ApiOperation({ description: "Returns genres' ids and names." })
   @ApiOkResponse({
     description: "If success returns a genre's list.",
     type: GetGenresResponseDTO,
