@@ -3,10 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GenresModule } from './modules/genres/genres.module';
 import { SessionModule } from './modules/session/session.module';
+import { AgeRatesModule } from './modules/age-rates/age-rates.module';
 
 @Module({
   controllers: [AppController],
   providers: [AppService],
-  imports: [GenresModule, SessionModule],
+  imports: [GenresModule, AgeRatesModule, SessionModule],
 })
 export class AppModule {}
