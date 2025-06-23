@@ -6,10 +6,20 @@ import { MovieModule } from './modules/movie/movie.module';
 import { SessionModule } from './modules/session/session.module';
 import { AgeRatesModule } from './modules/age-rates/age-rates.module';
 import { HallsModule } from './modules/halls/halls.module';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   controllers: [AppController],
   providers: [AppService],
-  imports: [GenresModule, AgeRatesModule, SessionModule, MovieModule, HallsModule],
+  imports: [
+    GenresModule,
+    AgeRatesModule,
+    SessionModule,
+    MovieModule,
+    HallsModule,
+    UserModule,
+    AuthModule,
+  ],
 })
 export class AppModule {}

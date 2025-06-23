@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
+import { AddSessionRequestDTO } from './dto/add-session.dto';
+import { fromZonedTime } from 'date-fns-tz';
+import { Prisma } from 'generated/prisma';
 
 @Injectable()
 export class SessionService {
@@ -13,5 +16,54 @@ export class SessionService {
     return response.map(
       (sessionType) => new GetSessionTypesResponseDTO(sessionType),
     );
+  }
+
+  async addSessions(dtos: AddSessionRequestDTO[]) {
+    if (dtos.length === 0) return;
+
+    const sessionsToCreate = dtos.map((dto) => ({
+      movie_id: dto.movieID,
+      date: fromZonedTime(new Date(dto.date), 'Europe/Kyiv'),
+      price: Number(dto.price),
+      price_VIP: Number(dto.priceVIP),
+      hall_id: dto.hallID,
+      session_type_id: dto.sessionTypeID,
+    }));
+
+    await prismaClient.session.createMany({
+      data: sessionsToCreate,
+    });
+
+    const movieId = dtos[0].movieID;
+
+    const movie = await prismaClient.movie.findUnique({
+      where: { id: movieId },
+      select: { created_at: true, expires_at: true },
+    });
+
+    if (!movie) {
+      throw new NotFoundException('Фільм не знайдено');
+    }
+
+    const sessionDates = sessionsToCreate.map((s) => s.date);
+    const minDate = new Date(Math.min(...sessionDates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...sessionDates.map((d) => d.getTime())));
+
+    const updateData: Prisma.MovieUpdateInput = {};
+
+    if (!movie.created_at || minDate < movie.created_at) {
+      updateData.created_at = minDate;
+    }
+
+    if (!movie.expires_at || maxDate > movie.expires_at) {
+      updateData.expires_at = maxDate;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await prismaClient.movie.update({
+        where: { id: movieId },
+        data: updateData,
+      });
+    }
   }
 }
