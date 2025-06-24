@@ -8,6 +8,9 @@ import {
   ForbiddenException,
   BadRequestException,
   InternalServerErrorException,
+  Param,
+  Optional,
+  Query,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -18,6 +21,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { SessionService } from './session.service';
@@ -101,5 +105,33 @@ export class SessionController {
 
       throw new InternalServerErrorException('Виникла неочікувана помилка.');
     }
+  }
+
+  @Get(':movie_id')
+  @ApiOperation({
+    description: 'Get all relevant sessions (by time) by movie id',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: String,
+    description:
+      'Optional start date/time for filtering sessions (e.g., "2025-06-24T10:00:00" or "2025-06-24 10:00:00"). Assumed to be in Europe/Kyiv local time if no timezone offset is provided.',
+    example: '2025-06-24T10:00:00',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: String,
+    description:
+      'Optional end date/time for filtering sessions (e.g., "2025-06-25T23:59:59" or "2025-06-25 23:59:59"). Assumed to be in Europe/Kyiv local time if no timezone offset is provided.',
+    example: '2025-06-25T23:59:59',
+  })
+  async getSessionsByMovieId(
+    @Param('movie_id') id: string,
+    @Optional() @Query('start_date') startDate?: string,
+    @Optional() @Query('end_date') endDate?: string,
+  ) {
+    return this.sessionService.getAvSessnsByMovieId(id, startDate, endDate);
   }
 }
