@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
-import { fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { Prisma } from 'generated/prisma';
+import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 
 @Injectable()
 export class SessionService {
@@ -65,5 +66,70 @@ export class SessionService {
         data: updateData,
       });
     }
+  }
+
+  async getAvSessnsByMovieId(
+    id: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<GetAvSesnsByMovIDRespDTO[]> {
+    const tZ = 'Europe/Kyiv';
+    const nowUtc = new Date();
+
+    const parsedStartDate = startDate
+      ? fromZonedTime(
+          new Date(
+            !startDate.includes('T') && !startDate.includes(':')
+              ? `${startDate}T${'00:00:00'}`
+              : startDate,
+          ),
+          tZ,
+        )
+      : undefined;
+
+    const parsedEndDate = endDate
+      ? fromZonedTime(
+          new Date(
+            !endDate.includes('T') && !endDate.includes(':')
+              ? `${endDate}T${'23:59:59'}`
+              : endDate,
+          ),
+          tZ,
+        )
+      : undefined;
+
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+
+    if (parsedStartDate) {
+      dateFilter.gte = parsedStartDate;
+    } else {
+      dateFilter.gte = nowUtc;
+    }
+
+    if (parsedEndDate) {
+      dateFilter.lte = parsedEndDate;
+    }
+
+    const sessions = await prismaClient.session.findMany({
+      where: {
+        movie_id: Number(id),
+        date: dateFilter,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      select: {
+        id: true,
+        date: true,
+      },
+    });
+
+    return sessions.map((session) => {
+      const TZDate = formatInTimeZone(session.date, tZ, 'yyyy-MM-dd HH:mm:ss');
+      return new GetAvSesnsByMovIDRespDTO({
+        id: session.id,
+        date: TZDate,
+      });
+    });
   }
 }
