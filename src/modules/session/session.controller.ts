@@ -11,6 +11,7 @@ import {
   Param,
   Optional,
   Query,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -22,12 +23,15 @@ import {
   ApiTags,
   ApiBody,
   ApiQuery,
+  ApiParam,
+  ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
 import { User } from 'generated/prisma';
+import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 
 @ApiTags('session')
 @Controller('session')
@@ -107,9 +111,18 @@ export class SessionController {
     }
   }
 
-  @Get(':movie_id')
+  @Get('by-movie/:movie_id')
   @ApiOperation({
     description: 'Get all relevant sessions (by time) by movie id',
+  })
+  @ApiOkResponse({
+    description: 'Array of sessions for the movie',
+    schema: {
+      example: [
+        { id: 1, date: '2025-07-01 18:00:00' },
+        { id: 2, date: '2025-07-01 21:00:00' },
+      ],
+    },
   })
   @ApiQuery({
     name: 'startDate',
@@ -133,5 +146,61 @@ export class SessionController {
     @Optional() @Query('end_date') endDate?: string,
   ) {
     return this.sessionService.getAvSessnsByMovieId(id, startDate, endDate);
+  }
+
+  @Get(':session_id')
+  @ApiOperation({ summary: 'Get session bookings by session id' })
+  @ApiParam({
+    name: 'session_id',
+    type: Number,
+    required: true,
+    description: 'Session ID',
+  })
+  @ApiOkResponse({
+    description: 'Session info',
+    type: GetSessionByIdResponseDTO,
+    schema: {
+      example: {
+        hall_name: 'Red Hall',
+        date_time: '2025-07-01 18:00:00',
+        price: 120.0,
+        price_VIP: 200.0,
+        seats: [
+          { is_VIP: false, is_booked: false, row: 1, col: 1 },
+          { is_VIP: true, is_booked: true, row: 1, col: 2 },
+        ],
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'Сеанс із id 123 не знайдено!',
+        error: 'Not Found',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid session id',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Некоректний id сеансу!',
+        error: 'Bad Request',
+      },
+    },
+  })
+  async getSessionById(@Param('session_id') session_id: string) {
+    const id = Number(session_id);
+    if (isNaN(id) || id <= 0) {
+      throw new BadRequestException('Некоректний id сеансу!');
+    }
+    const sessionInfo = await this.sessionService.getSessionInfoById(id);
+    if (!sessionInfo) {
+      throw new NotFoundException(`Сеанс із id ${id} не знайдено!`);
+    }
+    return sessionInfo;
   }
 }
