@@ -115,6 +115,15 @@ export class SessionController {
   @ApiOperation({
     description: 'Get all relevant sessions (by time) by movie id',
   })
+  @ApiOkResponse({
+    description: 'Array of sessions for the movie',
+    schema: {
+      example: [
+        { id: 1, date: '2025-07-01 18:00:00' },
+        { id: 2, date: '2025-07-01 21:00:00' },
+      ],
+    },
+  })
   @ApiQuery({
     name: 'startDate',
     required: false,
