@@ -12,4 +12,9 @@ export class AgeRatesService {
     });
     return response.map((rate) => new GetAgeRatesResponseDTO(rate));
   }
+
+  async existsById(id: number): Promise<boolean> {
+    const rate = await prismaClient.rate.findUnique({ where: { id } });
+    return !!rate;
+  }
 }
