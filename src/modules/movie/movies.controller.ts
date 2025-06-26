@@ -1,8 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiOkResponse,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { GetMoviesResponseDTO } from './dto/get-movies.dto'; // adjust path
 import { MovieService } from './movie.service';
 
+@ApiTags('movies')
 @Controller('movies')
 export class MoviesController {
   constructor(private readonly movieService: MovieService) {}

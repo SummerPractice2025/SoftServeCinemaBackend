@@ -7,7 +7,7 @@ import { AgeRatesModule } from '../age-rates/age-rates.module';
 
 @Module({
   imports: [forwardRef(() => TmdbModule), AgeRatesModule],
-  controllers: [MovieController],
+  controllers: [MovieController, MoviesController],
   providers: [MovieService],
 })
 export class MovieModule {}
