@@ -12,6 +12,7 @@ import {
   Optional,
   Query,
   NotFoundException,
+  Put,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -32,6 +33,7 @@ import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
 import { User } from 'generated/prisma';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
+import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 
 @ApiTags('session')
 @Controller('session')
@@ -202,5 +204,101 @@ export class SessionController {
       throw new NotFoundException(`Сеанс із id ${id} не знайдено!`);
     }
     return sessionInfo;
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Put(':session_id')
+  @ApiOperation({ summary: 'Update an existing session' })
+  @ApiParam({
+    name: 'session_id',
+    type: Number,
+    required: true,
+    description: 'Session ID',
+  })
+  @ApiBody({
+    type: UpdateSessionRequestDTO,
+    description: 'Session update data',
+    examples: {
+      validFull: {
+        summary: 'All fields present',
+        value: {
+          movie_id: 1,
+          date: '2025-07-01T18:00:00',
+          price: 120.0,
+          price_VIP: 200.0,
+          hall_id: 2,
+          session_type_id: 1,
+          is_deleted: false,
+        },
+      },
+      validNoIsDeleted: {
+        summary: 'Without is_deleted',
+        value: {
+          movie_id: 2,
+          date: '2025-08-15T21:30:00',
+          price: 150.5,
+          price_VIP: 250.0,
+          hall_id: 3,
+          session_type_id: 2,
+        },
+      },
+      validDateWithSpace: {
+        summary: 'Date with space separator',
+        value: {
+          movie_id: 3,
+          date: '2025-09-10 14:00:00',
+          price: 100,
+          price_VIP: 180,
+          hall_id: 1,
+          session_type_id: 1,
+          is_deleted: true,
+        },
+      },
+      validMinimal: {
+        summary: 'Minimal valid (all required fields)',
+        value: {
+          movie_id: 4,
+          date: '2025-10-01T12:00:00',
+          price: 90,
+          price_VIP: 150,
+          hall_id: 2,
+          session_type_id: 2,
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Updated successfully!',
+    schema: { example: { status: 200, message: 'Updated successfully!' } },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid session id or data' })
+  @ApiForbiddenResponse({
+    description: 'Access denied. Only admins can update sessions.',
+  })
+  @ApiNotFoundResponse({ description: 'Session not found' })
+  async updateSession(
+    @Param('session_id') session_id: string,
+    @Body() dto: UpdateSessionRequestDTO,
+    @Request() req: { user: User },
+  ) {
+    try {
+      if (!req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів',
+        );
+      }
+
+      await this.sessionService.updateSession(Number(session_id), dto);
+      return { status: 200, message: 'Інфо про сеанс оновлено успішно!' };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
   }
 }

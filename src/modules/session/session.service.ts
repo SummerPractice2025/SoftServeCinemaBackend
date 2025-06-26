@@ -6,6 +6,7 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { Prisma } from 'generated/prisma';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
+import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 
 @Injectable()
 export class SessionService {
@@ -174,5 +175,34 @@ export class SessionService {
     dto.price_VIP = session.price_VIP;
     dto.seats = seats;
     return dto;
+  }
+
+  async updateSession(
+    session_id: number,
+    dto: UpdateSessionRequestDTO,
+  ): Promise<void> {
+    const exists = await this.existsById(session_id);
+
+    if (!exists) {
+      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+    }
+
+    const tZ = 'Europe/Kyiv';
+
+    const updateData = {
+      date: fromZonedTime(new Date(dto.date), tZ) ?? undefined,
+      price: dto.price ?? undefined,
+      price_VIP: dto.price_VIP ?? undefined,
+      hall: dto.hall_id ? { connect: { id: dto.hall_id } } : undefined,
+      sessionType: dto.session_type_id
+        ? { connect: { id: dto.session_type_id } }
+        : undefined,
+      is_deleted: dto.is_deleted ?? undefined,
+    };
+
+    await prismaClient.session.update({
+      where: { id: session_id },
+      data: updateData,
+    });
   }
 }
