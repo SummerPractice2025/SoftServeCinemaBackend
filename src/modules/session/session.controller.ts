@@ -125,7 +125,7 @@ export class SessionController {
     },
   })
   @ApiQuery({
-    name: 'startDate',
+    name: 'start_date',
     required: false,
     type: String,
     description:
@@ -133,7 +133,7 @@ export class SessionController {
     example: '2025-06-24T10:00:00',
   })
   @ApiQuery({
-    name: 'endDate',
+    name: 'end_date',
     required: false,
     type: String,
     description:
