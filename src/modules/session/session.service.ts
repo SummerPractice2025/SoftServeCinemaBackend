@@ -4,6 +4,10 @@ import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
 import { fromZonedTime } from 'date-fns-tz';
 import { Prisma } from 'generated/prisma';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { Prisma } from 'generated/prisma';
+import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
+import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 
 @Injectable()
 export class SessionService {
@@ -65,5 +69,112 @@ export class SessionService {
         data: updateData,
       });
     }
+  }
+
+  async getAvSessnsByMovieId(
+    id: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<GetAvSesnsByMovIDRespDTO[]> {
+    const tZ = 'Europe/Kyiv';
+    const nowUtc = new Date();
+
+    const parsedStartDate = startDate
+      ? fromZonedTime(
+          new Date(
+            !startDate.includes('T') && !startDate.includes(':')
+              ? `${startDate}T${'00:00:00'}`
+              : startDate,
+          ),
+          tZ,
+        )
+      : undefined;
+
+    const parsedEndDate = endDate
+      ? fromZonedTime(
+          new Date(
+            !endDate.includes('T') && !endDate.includes(':')
+              ? `${endDate}T${'23:59:59'}`
+              : endDate,
+          ),
+          tZ,
+        )
+      : undefined;
+
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+
+    if (parsedStartDate) {
+      dateFilter.gte = parsedStartDate;
+    } else {
+      dateFilter.gte = nowUtc;
+    }
+
+    if (parsedEndDate) {
+      dateFilter.lte = parsedEndDate;
+    }
+
+    const sessions = await prismaClient.session.findMany({
+      where: {
+        movie_id: Number(id),
+        date: dateFilter,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      select: {
+        id: true,
+        date: true,
+      },
+    });
+
+    return sessions.map((session) => {
+      const TZDate = formatInTimeZone(session.date, tZ, 'yyyy-MM-dd HH:mm:ss');
+      return new GetAvSesnsByMovIDRespDTO({
+        id: session.id,
+        date: TZDate,
+      });
+    });
+  }
+
+  async existsById(session_id: number): Promise<boolean> {
+    const session = await prismaClient.session.findUnique({
+      where: { id: session_id },
+    });
+    return !!session;
+  }
+
+  async getSessionInfoById(
+    session_id: number,
+  ): Promise<GetSessionByIdResponseDTO | null> {
+    const exists = await this.existsById(session_id);
+    if (!exists) {
+      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+    }
+    const session = await prismaClient.session.findUnique({
+      where: { id: session_id },
+      include: {
+        hall: true,
+        bookings: true,
+      },
+    });
+    if (!session) return null;
+
+    const seats = session.bookings.map((b) => ({
+      is_VIP: b.is_VIP,
+      is_booked: true,
+      row: b.row_x,
+      col: b.col_y,
+    }));
+
+    const tZ = 'Europe/Kyiv';
+    const date_time = formatInTimeZone(session.date, tZ, 'yyyy-MM-dd HH:mm:ss');
+
+    const dto = new GetSessionByIdResponseDTO();
+    dto.hall_name = session.hall.name;
+    dto.date_time = date_time;
+    dto.price = session.price;
+    dto.price_VIP = session.price_VIP;
+    dto.seats = seats;
+    return dto;
   }
 }

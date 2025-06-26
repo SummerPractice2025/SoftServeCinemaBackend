@@ -3,10 +3,11 @@ import { MovieService } from './movie.service';
 import { MovieController } from './movie.controller';
 import { TmdbModule } from '../tmdb/tmdb.module';
 import { MoviesController } from './movies.controller';
+import { AgeRatesModule } from '../age-rates/age-rates.module';
 
 @Module({
-  imports: [forwardRef(() => TmdbModule)],
-  controllers: [MovieController, MoviesController],
+  imports: [forwardRef(() => TmdbModule), AgeRatesModule],
+  controllers: [MovieController],
   providers: [MovieService],
 })
 export class MovieModule {}

@@ -5,5 +5,6 @@ import { AgeRatesController } from './age-rates.controller';
 @Module({
   controllers: [AgeRatesController],
   providers: [AgeRatesService],
+  exports: [AgeRatesService],
 })
 export class AgeRatesModule {}
