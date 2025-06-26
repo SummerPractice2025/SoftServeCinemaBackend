@@ -2,10 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
-import { fromZonedTime } from 'date-fns-tz';
 import { Prisma } from 'generated/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { Prisma } from 'generated/prisma';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 

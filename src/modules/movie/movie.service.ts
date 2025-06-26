@@ -104,6 +104,8 @@ export class MovieService {
         closestSession,
         sessionType,
       );
+    });
+  }
 
   async updateMovieById(id: number, dto: UpdateMovieRespDto) {
     if (!id || id <= 0) {
