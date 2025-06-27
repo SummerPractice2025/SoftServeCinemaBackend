@@ -12,6 +12,7 @@ export class GetSessionByIdResponseDTO {
   @ApiProperty({ type: String, format: 'date-time' }) date_time: string;
   @ApiProperty() price: number;
   @ApiProperty() price_VIP: number;
+  @ApiProperty() session_type_id: number;
   @ApiProperty({ type: [GetSessionByIdSeatDTO] })
   seats: GetSessionByIdSeatDTO[];
 }

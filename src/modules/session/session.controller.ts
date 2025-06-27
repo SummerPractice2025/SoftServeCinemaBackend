@@ -165,6 +165,7 @@ export class SessionController {
         date_time: '2025-07-01 18:00:00',
         price: 120.0,
         price_VIP: 200.0,
+        session_type_id: 2,
         seats: [
           { is_VIP: false, is_booked: false, row: 1, col: 1 },
           { is_VIP: true, is_booked: true, row: 1, col: 2 },
