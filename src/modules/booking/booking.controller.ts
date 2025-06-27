@@ -54,7 +54,32 @@ export class BookingController {
   })
   @ApiCreatedResponse({ description: 'Seats successfully booked' })
   @ApiBadRequestResponse({
-    description: 'Seat already booked or invalid request',
+    description: 'Seat already booked or validation failed',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Місце [5, 6] вже заброньовано на цю сесію.',
+        error: 'Bad Request',
+      },
+    },
+    examples: {
+      seatTaken: {
+        summary: 'Seat already booked',
+        value: {
+          statusCode: 400,
+          message: 'Місце [5, 6] вже заброньовано для цього сеансу.',
+          error: 'Bad Request',
+        },
+      },
+      invalidSeat: {
+        summary: 'Invalid seat coordinates',
+        value: {
+          statusCode: 400,
+          message: 'Місця [100, 100] не існує.',
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiInternalServerErrorResponse({ description: 'Unexpected server error' })
   async addBooking(
