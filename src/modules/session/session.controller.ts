@@ -81,7 +81,41 @@ export class SessionController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'The request contains errors or invalid data',
+    description: 'Validation failed or session conflicts found',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Some error message',
+        error: 'Bad Request',
+      },
+    },
+    examples: {
+      duplicateDates: {
+        summary: 'Duplicate session dates in request',
+        value: {
+          statusCode: 400,
+          message: 'Усі сеанси повинні мати унікальні дати.',
+          error: 'Bad Request',
+        },
+      },
+      movieNotFound: {
+        summary: 'Movie not found',
+        value: {
+          statusCode: 400,
+          message: 'Фільм з ID 42 не знайдено',
+          error: 'Bad Request',
+        },
+      },
+      sessionConflict: {
+        summary: 'Session time conflict',
+        value: {
+          statusCode: 400,
+          message:
+            'Сеанс о 2025-06-28 16:00:00 у залі Зал 2 конфліктує з сеансом о 2025-06-28 15:30:00',
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiForbiddenResponse({
     description: 'Access denied. Only admins can add sessions.',
