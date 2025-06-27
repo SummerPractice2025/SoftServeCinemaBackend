@@ -172,6 +172,7 @@ export class SessionService {
     dto.date_time = date_time;
     dto.price = session.price;
     dto.price_VIP = session.price_VIP;
+    dto.session_type_id = session.session_type_id;
     dto.seats = seats;
     return dto;
   }
