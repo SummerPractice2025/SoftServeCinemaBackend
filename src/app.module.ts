@@ -9,6 +9,7 @@ import { HallsModule } from './modules/halls/halls.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CommonModule } from './modules/common/common.module';
+import { BookingModule } from './modules/booking/booking.module';
 
 @Module({
   controllers: [AppController],
@@ -22,6 +23,7 @@ import { CommonModule } from './modules/common/common.module';
     UserModule,
     AuthModule,
     CommonModule,
+    BookingModule,
   ],
 })
 export class AppModule {}

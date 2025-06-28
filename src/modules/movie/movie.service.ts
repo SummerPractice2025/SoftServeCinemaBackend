@@ -9,6 +9,7 @@ import {
   GetMovieResponseDTO,
 } from './dto/get-movie.dto';
 import { prismaClient } from '../../db/prismaClient';
+import { GetMoviesResponseDTO } from './dto/get-movies.dto';
 import { UpdateMovieRespDto } from './dto/update-movie-by-id.dto';
 import { AgeRatesService } from '../age-rates/age-rates.service';
 
@@ -53,6 +54,57 @@ export class MovieService {
     );
 
     return new GetMovieByIDResponseDTO(movie, rating);
+  }
+
+  async getActiveAndUpcomingMovies(
+    quantity?: number,
+  ): Promise<GetMoviesResponseDTO[]> {
+    const now = new Date();
+    const nowUtc = now.toISOString();
+    const twoWeeksLater = new Date(
+      now.getTime() + 14 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const movies = await prismaClient.movie.findMany({
+      where: {
+        OR: [
+          {
+            created_at: { lte: nowUtc },
+            expires_at: { gte: nowUtc },
+          },
+          {
+            created_at: { gte: nowUtc, lte: twoWeeksLater },
+          },
+        ],
+      },
+      take: quantity,
+      orderBy: { created_at: 'asc' },
+      include: {
+        genres: { select: { genre: true } },
+        sessions: {
+          where: { date: { gte: nowUtc } },
+          orderBy: { date: 'asc' },
+          take: 1,
+          include: {
+            sessionType: true,
+          },
+        },
+      },
+    });
+
+    return movies.map((movie) => {
+      const closestSession = movie.sessions[0];
+      const sessionType = closestSession.sessionType;
+
+      const genres = movie.genres.map((g) => g.genre);
+
+      return new GetMoviesResponseDTO(
+        movie,
+        genres,
+        closestSession,
+        sessionType,
+      );
+    });
   }
 
   async updateMovieById(id: number, dto: UpdateMovieRespDto) {

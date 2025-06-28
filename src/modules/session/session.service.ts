@@ -6,8 +6,8 @@ import {
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { Prisma } from 'generated/prisma';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
@@ -191,6 +191,7 @@ export class SessionService {
     dto.date_time = date_time;
     dto.price = session.price;
     dto.price_VIP = session.price_VIP;
+    dto.session_type_id = session.session_type_id;
     dto.seats = seats;
     return dto;
   }
