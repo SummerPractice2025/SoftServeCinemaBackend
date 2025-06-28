@@ -5,23 +5,16 @@ import {
   IsDateString,
   Min,
   IsNumber,
-  IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-// import { Optional } from '@nestjs/common';
+import { Type } from 'class-transformer';
 
 export class UpdateSessionRequestDTO {
-  // @ApiProperty({ description: 'movie id', example: 1 })
-  // @IsInt()
-  // @Min(1)
-  // @IsNotEmpty()
-  // movie_id: number;
-
   @ApiProperty({
     description: 'Exipration session date',
     example: '2025-06-23T15:00:00 or 2025-06-23 15:00:00',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsDateString()
   date?: string;
 
@@ -29,7 +22,9 @@ export class UpdateSessionRequestDTO {
     description: "standard session's ticket price",
     example: 100.5,
   })
-  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Price must be a valid number' })
   @Min(0.01)
   price?: number;
 
@@ -37,16 +32,22 @@ export class UpdateSessionRequestDTO {
     description: "VIP session's ticket price",
     example: 150.75,
   })
-  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'VIP price must be a valid number' })
   @Min(0.01)
   price_VIP?: number;
 
   @ApiProperty({ description: 'hall id', example: 2 })
-  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Hall ID must be a valid integer' })
   hall_id?: number;
 
   @ApiProperty({ description: "session's type id (2D / 3D etc.)", example: 1 })
-  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Session type ID must be a valid integer' })
   session_type_id?: number;
 
   @ApiProperty({ example: false, required: false })
