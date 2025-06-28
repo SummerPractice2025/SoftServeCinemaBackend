@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
@@ -6,9 +10,13 @@ import { Prisma } from 'generated/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
+import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
+import { HallsService } from '../halls/halls.service';
 
 @Injectable()
 export class SessionService {
+  constructor(private readonly hallsService: HallsService) {}
+
   async getSessionTypes(): Promise<GetSessionTypesResponseDTO[]> {
     const response = await prismaClient.sessionType.findMany({
       orderBy: {
@@ -138,7 +146,18 @@ export class SessionService {
     const session = await prismaClient.session.findUnique({
       where: { id: session_id },
     });
-    return !!session;
+
+    if (!session) return false;
+    return true;
+  }
+
+  async existsSessionTypeById(session_type_id: number): Promise<boolean> {
+    const sessionType = await prismaClient.sessionType.findUnique({
+      where: { id: session_type_id },
+    });
+
+    if (!sessionType) return false;
+    return true;
   }
 
   async getSessionInfoById(
@@ -175,5 +194,73 @@ export class SessionService {
     dto.session_type_id = session.session_type_id;
     dto.seats = seats;
     return dto;
+  }
+
+  async updateSession(
+    session_id: number,
+    dto: UpdateSessionRequestDTO,
+  ): Promise<void> {
+    const exists = await this.existsById(session_id);
+
+    if (!exists) {
+      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+    }
+
+    const tZ = 'Europe/Kyiv';
+    const updateData: Prisma.SessionUpdateInput = {};
+
+    if (dto.date !== undefined) {
+      this.validaDate(dto.date);
+      updateData.date = fromZonedTime(new Date(dto.date), tZ);
+    }
+    if (dto.price !== undefined) {
+      updateData.price = dto.price;
+    }
+    if (dto.price_VIP !== undefined) {
+      updateData.price_VIP = dto.price_VIP;
+    }
+    if (dto.hall_id !== undefined) {
+      const hallExists = await this.hallsService.existsById(dto.hall_id);
+      if (!hallExists) {
+        throw new BadRequestException(`Зал із id ${dto.hall_id} не знайдено!`);
+      }
+      updateData.hall = { connect: { id: dto.hall_id } };
+    }
+    if (dto.session_type_id !== undefined) {
+      const sessionTypeExists = await this.existsSessionTypeById(
+        dto.session_type_id,
+      );
+      if (!sessionTypeExists) {
+        throw new BadRequestException(
+          `Тип сеансу із id ${dto.session_type_id} не знайдено!`,
+        );
+      }
+      updateData.sessionType = { connect: { id: dto.session_type_id } };
+    }
+    if (dto.is_deleted !== undefined) {
+      updateData.is_deleted = dto.is_deleted;
+    }
+
+    await prismaClient.session.update({
+      where: { id: session_id },
+      data: updateData,
+    });
+  }
+
+  private validaDate(date: string) {
+    const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+    const spaceFormat = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+    if (!isoFormat.test(date) && !spaceFormat.test(date)) {
+      throw new BadRequestException(
+        'Дата має бути у форматі "YYYY-MM-DDTHH:mm:ss" або "YYYY-MM-DD HH:mm:ss!"',
+      );
+    }
+
+    const parsed = new Date(date.replace(' ', 'T'));
+
+    if (isNaN(parsed.getTime())) {
+      throw new BadRequestException('Некотректний дата або час.');
+    }
   }
 }
