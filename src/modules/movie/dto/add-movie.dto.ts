@@ -10,28 +10,6 @@ import {
 import { Type } from 'class-transformer';
 import { AddSessionRequestDTO } from 'src/modules/session/dto/add-session.dto';
 
-class GenreDTO {
-  @ApiProperty({ description: 'Genre name', example: 'Drama' })
-  @IsString()
-  name: string;
-}
-
-class PersonNameDTO {
-  @ApiProperty({ description: 'First name', example: 'John' })
-  @IsString()
-  first_name: string;
-
-  @ApiProperty({ description: 'Last name', example: 'Doe' })
-  @IsString()
-  last_name: string;
-}
-
-class StudioDTO {
-  @ApiProperty({ description: 'Studio name', example: 'Warner Bros' })
-  @IsString()
-  name: string;
-}
-
 export class SessionCreateDTO extends OmitType(AddSessionRequestDTO, [
   'movieID',
 ] as const) {}
@@ -65,11 +43,6 @@ export class AddMovieRequestDTO {
   @Type(() => Number)
   age_rate_id: number;
 
-  @ApiProperty({ description: 'Movie rating', example: 8.7 })
-  @IsNumber()
-  @Type(() => Number)
-  rating: number;
-
   @ApiProperty({
     description: 'Poster URL',
     example: 'https://example.com/poster.jpg',
@@ -84,29 +57,34 @@ export class AddMovieRequestDTO {
   @IsString()
   trailer_url: string;
 
-  @ApiProperty({ description: 'Movie genres', type: [GenreDTO] })
+  @ApiProperty({
+    description: 'Movie genres',
+    example: '[Фантастика, Пригоди]',
+  })
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => GenreDTO)
-  genres: GenreDTO[];
+  @IsString({ each: true })
+  genres: string[];
 
-  @ApiProperty({ description: 'Movie directors', type: [PersonNameDTO] })
+  @ApiProperty({ description: 'Movie directors', example: '[Крістофер Нолан]' })
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PersonNameDTO)
-  directors: PersonNameDTO[];
+  @IsString({ each: true })
+  directors: string[];
 
-  @ApiProperty({ description: 'Movie actors', type: [PersonNameDTO] })
+  @ApiProperty({
+    description: 'Movie actors',
+    example: '[Леонардо ді Капріо, Метт Деймон]',
+  })
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PersonNameDTO)
-  actors: PersonNameDTO[];
+  @IsString({ each: true })
+  actors: string[];
 
-  @ApiProperty({ description: 'Production studios', type: [StudioDTO] })
+  @ApiProperty({
+    description: 'Production studios',
+    example: '[Syncopy, Legendary Pictures]',
+  })
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => StudioDTO)
-  studios: StudioDTO[];
+  @IsString({ each: true })
+  studios: string[];
 
   @ApiProperty({
     description: 'Movie sessions (movieID will be ignored)',

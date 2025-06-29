@@ -196,6 +196,23 @@ export class MovieService {
     } = dto;
     const tz = 'Europe/Kyiv';
 
+    const movie = await prismaClient.movie.findFirst({
+      where: {
+        name: movieData.name,
+        year: movieData.year,
+      },
+    });
+
+    if (movie) {
+      throw new BadRequestException(
+        `Фільм ${movieData.name} ${movieData.year} року було додано раніше.`,
+      );
+    }
+
+    if (!sessions.length) {
+      throw new BadRequestException('Має бути принаймні один сеанс!');
+    }
+
     const ageRateExists = await this.ageRatesService.existsById(age_rate_id);
     if (!ageRateExists) {
       throw new BadRequestException(
@@ -223,18 +240,17 @@ export class MovieService {
 
     return await prismaClient.$transaction(async (tx) => {
       const genreRecords = await Promise.all(
-        genres.map(async (genre) => {
+        genres.map(async (name) => {
           const existing = await tx.genre.findFirst({
-            where: { name: genre.name },
+            where: { name: name },
           });
-          return (
-            existing ?? (await tx.genre.create({ data: { name: genre.name } }))
-          );
+          return existing ?? (await tx.genre.create({ data: { name: name } }));
         }),
       );
 
       const actorRecords = await Promise.all(
-        actors.map(async ({ first_name, last_name }) => {
+        actors.map(async (fullName) => {
+          const { first_name, last_name } = this.splitFullName(fullName);
           const existing = await tx.actor.findFirst({
             where: { first_name, last_name },
           });
@@ -246,7 +262,8 @@ export class MovieService {
       );
 
       const directorRecords = await Promise.all(
-        directors.map(async ({ first_name, last_name }) => {
+        directors.map(async (fullName) => {
+          const { first_name, last_name } = this.splitFullName(fullName);
           const existing = await tx.director.findFirst({
             where: { first_name, last_name },
           });
@@ -258,17 +275,13 @@ export class MovieService {
       );
 
       const studioRecords = await Promise.all(
-        studios.map(async ({ name }) => {
+        studios.map(async (name) => {
           const existing = await tx.studio.findFirst({
             where: { name },
           });
           return existing ?? (await tx.studio.create({ data: { name } }));
         }),
       );
-
-      if (!sessions.length) {
-        throw new BadRequestException('Має бути принаймні один сеанс!');
-      }
 
       const parsedDates = sessions.map(
         (s) => new Date(s.date.replace(' ', 'T')),
@@ -281,7 +294,10 @@ export class MovieService {
 
       const movie = await tx.movie.create({
         data: {
-          ...movieData,
+          name: movieData.name,
+          description: movieData.description,
+          duration: movieData.duration,
+          year: movieData.year,
           expires_at: fromZonedTime(maxDate, tz),
           created_at: new Date(),
           thumbnail_url: movieData.poster_url,
@@ -356,5 +372,14 @@ export class MovieService {
 
     if (!sessionType) return false;
     return true;
+  }
+
+  private splitFullName(fullName: string): {
+    first_name: string;
+    last_name: string;
+  } {
+    const [first_name, ...rest] = fullName.trim().split(' ');
+    const last_name = rest.join(' ');
+    return { first_name, last_name };
   }
 }

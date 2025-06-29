@@ -309,6 +309,14 @@ export class MovieController {
     content: {
       'application/json': {
         examples: {
+          movieAddedEarlierError: {
+            summary: 'Movie with chosen name and year was added earlier.',
+            value: {
+              statusCode: 400,
+              message: 'Фільм Аутсайдери 2019 року було додано раніше.',
+              error: 'Bad Request',
+            },
+          },
           validationError: {
             summary: 'Validation errors in request body',
             value: {
