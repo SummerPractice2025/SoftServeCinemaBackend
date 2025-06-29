@@ -8,5 +8,6 @@ import { HallsModule } from '../halls/halls.module';
   imports: [CommonModule, HallsModule],
   controllers: [SessionController],
   providers: [SessionService],
+  exports: [SessionService],
 })
 export class SessionModule {}

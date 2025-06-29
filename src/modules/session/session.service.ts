@@ -247,7 +247,7 @@ export class SessionService {
     });
   }
 
-  private validaDate(date: string) {
+  public validaDate(date: string) {
     const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
     const spaceFormat = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
