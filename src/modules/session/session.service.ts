@@ -38,88 +38,7 @@ export class SessionService {
       throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
     }
 
-    const movieDurations = new Map<number, number>();
-
-    for (const dto of dtos) {
-      const sessionStartUTC = fromZonedTime(new Date(dto.date), 'Europe/Kyiv');
-
-      let duration = movieDurations.get(dto.movieID);
-      if (duration === undefined) {
-        const movie = await prismaClient.movie.findUnique({
-          where: { id: dto.movieID },
-          select: { duration: true },
-        });
-        if (!movie) {
-          throw new NotFoundException(`Фільм з ID ${dto.movieID} не знайдено`);
-        }
-        duration = movie.duration;
-        movieDurations.set(dto.movieID, duration);
-      }
-
-      const previousSession = await prismaClient.session.findFirst({
-        where: {
-          hall_id: dto.hallID,
-          date: {
-            lte: sessionStartUTC,
-          },
-        },
-        orderBy: {
-          date: 'desc',
-        },
-        select: {
-          date: true,
-          movie: { select: { duration: true } },
-        },
-      });
-
-      if (previousSession) {
-        const prevSessionEnd = this.addMinutes(
-          previousSession.date,
-          previousSession.movie.duration + BREAK_BUFFER_MINUTES,
-        );
-        if (sessionStartUTC < prevSessionEnd) {
-          throw new BadRequestException(
-            await this.getSessionOverlapError(
-              dto.hallID,
-              sessionStartUTC,
-              previousSession.date,
-            ),
-          );
-        }
-      }
-
-      const nextSession = await prismaClient.session.findFirst({
-        where: {
-          hall_id: dto.hallID,
-          date: {
-            gte: sessionStartUTC,
-          },
-        },
-        orderBy: {
-          date: 'asc',
-        },
-        select: {
-          date: true,
-          movie: { select: { duration: true } },
-        },
-      });
-
-      if (nextSession) {
-        const newSessionEnd = this.addMinutes(
-          sessionStartUTC,
-          duration + BREAK_BUFFER_MINUTES,
-        );
-        if (newSessionEnd > nextSession.date) {
-          throw new BadRequestException(
-            await this.getSessionOverlapError(
-              dto.hallID,
-              sessionStartUTC,
-              nextSession.date,
-            ),
-          );
-        }
-      }
-    }
+    await this.validateSessionsNoOverlap(dtos);
 
     const sessionsToCreate = dtos.map((dto) => ({
       movie_id: dto.movieID,
@@ -271,6 +190,130 @@ export class SessionService {
     dto.session_type_id = session.session_type_id;
     dto.seats = seats;
     return dto;
+  }
+
+  async validateSessionsNoOverlap(dtos: AddSessionRequestDTO[]) {
+    if (dtos.length === 0) return;
+
+    const movieDurations = new Map<number, number>();
+
+    // Prepare session info for batch overlap check
+    type SessionInfo = {
+      hallID: number;
+      start: Date;
+      duration: number;
+    };
+    const sessionsByHall = new Map<number, SessionInfo[]>();
+
+    for (const dto of dtos) {
+      const sessionStartUTC = fromZonedTime(new Date(dto.date), 'Europe/Kyiv');
+
+      let duration = movieDurations.get(dto.movieID);
+      if (duration === undefined) {
+        const movie = await prismaClient.movie.findUnique({
+          where: { id: dto.movieID },
+          select: { duration: true },
+        });
+        if (!movie) {
+          throw new NotFoundException(`Фільм з ID ${dto.movieID} не знайдено`);
+        }
+        duration = movie.duration;
+        movieDurations.set(dto.movieID, duration);
+      }
+
+      // Gather for batch check
+      if (!sessionsByHall.has(dto.hallID)) {
+        sessionsByHall.set(dto.hallID, []);
+      }
+      sessionsByHall.get(dto.hallID)!.push({
+        hallID: dto.hallID,
+        start: sessionStartUTC,
+        duration,
+      });
+
+      const previousSession = await prismaClient.session.findFirst({
+        where: {
+          hall_id: dto.hallID,
+          date: {
+            lte: sessionStartUTC,
+          },
+        },
+        orderBy: {
+          date: 'desc',
+        },
+        select: {
+          date: true,
+          movie: { select: { duration: true } },
+        },
+      });
+
+      if (previousSession) {
+        const prevSessionEnd = this.addMinutes(
+          previousSession.date,
+          previousSession.movie.duration + BREAK_BUFFER_MINUTES,
+        );
+        if (sessionStartUTC < prevSessionEnd) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(
+              dto.hallID,
+              sessionStartUTC,
+              previousSession.date,
+            ),
+          );
+        }
+      }
+
+      const nextSession = await prismaClient.session.findFirst({
+        where: {
+          hall_id: dto.hallID,
+          date: {
+            gte: sessionStartUTC,
+          },
+        },
+        orderBy: {
+          date: 'asc',
+        },
+        select: {
+          date: true,
+          movie: { select: { duration: true } },
+        },
+      });
+
+      if (nextSession) {
+        const newSessionEnd = this.addMinutes(
+          sessionStartUTC,
+          duration + BREAK_BUFFER_MINUTES,
+        );
+        if (newSessionEnd > nextSession.date) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(
+              dto.hallID,
+              sessionStartUTC,
+              nextSession.date,
+            ),
+          );
+        }
+      }
+    }
+
+    for (const [hallID, sessions] of sessionsByHall.entries()) {
+      sessions.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      for (let i = 1; i < sessions.length; i++) {
+        const prev = sessions[i - 1];
+        const curr = sessions[i];
+
+        const prevEnd = this.addMinutes(
+          prev.start,
+          prev.duration + BREAK_BUFFER_MINUTES,
+        );
+        if (curr.start < prevEnd) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(hallID, prev.start, curr.start),
+          );
+        }
+      }
+    }
   }
 
   private addMinutes(date: Date, minutes: number): Date {
