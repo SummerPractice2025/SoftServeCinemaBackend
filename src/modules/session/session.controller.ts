@@ -121,14 +121,15 @@ export class SessionController {
 
   @Get('by-movie/:movie_id')
   @ApiOperation({
-    description: 'Get all relevant sessions (by time) by movie id',
+    description:
+      'Get all relevant sessions (by time) by movie id and not deleted (is_deleted = false)',
   })
   @ApiOkResponse({
     description: 'Array of sessions for the movie',
     schema: {
       example: [
-        { id: 1, date: '2025-07-01 18:00:00' },
-        { id: 2, date: '2025-07-01 21:00:00' },
+        { id: 1, date: '2025-07-01 18:00:00', session_type_id: 3 },
+        { id: 2, date: '2025-07-01 21:00:00', session_type_id: 1 },
       ],
     },
   })

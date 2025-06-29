@@ -13,6 +13,7 @@ export class GetSessionByIdResponseDTO {
   @ApiProperty() price: number;
   @ApiProperty() price_VIP: number;
   @ApiProperty() session_type_id: number;
+  @ApiProperty() is_deleted: boolean;
   @ApiProperty({ type: [GetSessionByIdSeatDTO] })
   seats: GetSessionByIdSeatDTO[];
 }
