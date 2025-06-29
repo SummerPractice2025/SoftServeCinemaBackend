@@ -5,6 +5,7 @@ import {
   Param,
   UseGuards,
   Put,
+  Post,
   HttpCode,
   HttpStatus,
   Body,
@@ -13,6 +14,8 @@ import {
   Request,
   ForbiddenException,
   NotFoundException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -25,6 +28,8 @@ import {
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
+  ApiCreatedResponse,
+  ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
 import { MovieService } from './movie.service';
 import {
@@ -35,6 +40,7 @@ import {
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { UpdateMovieRespDto } from './dto/update-movie-by-id.dto';
 import { User } from 'generated/prisma';
+import { AddMovieRequestDTO } from './dto/add-movie.dto';
 
 @ApiTags('movie')
 @Controller('movie')
@@ -204,6 +210,295 @@ export class MovieController {
         throw error;
       }
 
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary: 'Add a new movie',
+    description:
+      'Creates a new movie with sessions, genres, actors, directors, and studios. Only administrators are allowed.',
+  })
+  @ApiBody({
+    type: AddMovieRequestDTO,
+    description: 'Movie creation payload',
+    examples: {
+      example1: {
+        summary: 'Complete movie with ISO format',
+        value: {
+          name: 'The Matrix',
+          description:
+            'A computer hacker learns from mysterious rebels about the true nature of his reality.',
+          duration: 136,
+          year: 1999,
+          age_rate_id: 1,
+          rating: 8.7,
+          poster_url: 'https://example.com/poster.jpg',
+          trailer_url: 'https://example.com/trailer.mp4',
+          genres: [{ name: 'Action' }, { name: 'Sci-Fi' }],
+          directors: [{ first_name: 'Lana', last_name: 'Wachowski' }],
+          actors: [{ first_name: 'Keanu', last_name: 'Reeves' }],
+          studios: [{ name: 'Warner Bros' }],
+          sessions: [
+            {
+              date: '2025-07-01T18:00:00',
+              price: 120,
+              priceVIP: 200,
+              hallID: 1,
+              sessionTypeID: 1,
+            },
+          ],
+        },
+      },
+      example2: {
+        summary: 'Complete movie with space date format',
+        value: {
+          name: 'The Matrix',
+          description:
+            'A computer hacker learns from mysterious rebels about the true nature of his reality.',
+          duration: 136,
+          year: 1999,
+          age_rate_id: 1,
+          rating: 8.7,
+          poster_url: 'https://example.com/poster.jpg',
+          trailer_url: 'https://example.com/trailer.mp4',
+          genres: [{ name: 'Action' }, { name: 'Sci-Fi' }],
+          directors: [{ first_name: 'Lana', last_name: 'Wachowski' }],
+          actors: [{ first_name: 'Keanu', last_name: 'Reeves' }],
+          studios: [{ name: 'Warner Bros' }],
+          sessions: [
+            {
+              date: '2025-07-01 18:00:00',
+              price: 120,
+              priceVIP: 200,
+              hallID: 1,
+              sessionTypeID: 1,
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    description: 'Movie created successfully',
+    schema: {
+      example: {
+        status: 201,
+        message: 'Фільм створено успішно!',
+        data: {
+          message: 'Фільм успішно створено!',
+          movieId: 123,
+          status: 'success',
+          createdEntities: {
+            genres: 2,
+            actors: 3,
+            directors: 1,
+            studios: 1,
+            sessions: 5,
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input or validation errors',
+    content: {
+      'application/json': {
+        examples: {
+          movieAddedEarlierError: {
+            summary: 'Movie with chosen name and year was added earlier.',
+            value: {
+              statusCode: 400,
+              message: 'Фільм Аутсайдери 2019 року було додано раніше.',
+              error: 'Bad Request',
+            },
+          },
+          validationError: {
+            summary: 'Validation errors in request body',
+            value: {
+              statusCode: 400,
+              message: [
+                'name must be a string',
+                'description must be a string',
+                'duration must be a number greater than 0',
+                'year must be an integer',
+                'age_rate_id must be an integer',
+                'rating must be a number',
+                'poster_url must be a string',
+                'trailer_url must be a string',
+                'genres must be an array',
+                'directors must be an array',
+                'actors must be an array',
+                'studios must be an array',
+                'sessions must be an array',
+              ],
+              error: 'Bad Request',
+            },
+          },
+          sessionValidationError: {
+            summary: 'Session validation errors',
+            value: {
+              statusCode: 400,
+              message: [
+                'date must be a valid ISO 8601 date string',
+                'price must be a valid number',
+                'price must be at least 0.01',
+                'priceVIP must be a valid number',
+                'priceVIP must be at least 0.01',
+                'hallID must be an integer',
+                'sessionTypeID must be an integer',
+              ],
+              error: 'Bad Request',
+            },
+          },
+          nestedValidationError: {
+            summary: 'Nested object validation errors',
+            value: {
+              statusCode: 400,
+              message: [
+                'genres must be an array',
+                'each genre must have a name property',
+                'actors must be an array',
+                'each actor must have first_name and last_name properties',
+                'directors must be an array',
+                'each director must have first_name and last_name properties',
+                'studios must be an array',
+                'each studio must have a name property',
+              ],
+              error: 'Bad Request',
+            },
+          },
+          noSessions: {
+            summary: 'No sessions provided',
+            value: {
+              statusCode: 400,
+              message: 'Має бути принаймні один сеанс!',
+              error: 'Bad Request',
+            },
+          },
+          invalidAgeRate: {
+            summary: 'Invalid age rate ID',
+            value: {
+              statusCode: 400,
+              message: 'Віковий рейтинг із id 999 не знайдено!',
+              error: 'Bad Request',
+            },
+          },
+          invalidHall: {
+            summary: 'Invalid hall ID in sessions',
+            value: {
+              statusCode: 400,
+              message: 'Зал із id 999 не знайдено!',
+              error: 'Bad Request',
+            },
+          },
+          invalidSessionType: {
+            summary: 'Invalid session type ID in sessions',
+            value: {
+              statusCode: 400,
+              message: 'Тип сеансу із id 999 не знайдено!',
+              error: 'Bad Request',
+            },
+          },
+          invalidDateFormat: {
+            summary: 'Invalid date format in sessions',
+            value: {
+              statusCode: 400,
+              message:
+                'Дата має бути у форматі "YYYY-MM-DDTHH:mm:ss" або "YYYY-MM-DD HH:mm:ss!"',
+              error: 'Bad Request',
+            },
+          },
+          invalidDateTime: {
+            summary: 'Invalid date/time value',
+            value: {
+              statusCode: 400,
+              message: 'Некотректний дата або час.',
+              error: 'Bad Request',
+            },
+          },
+          invalidPrice: {
+            summary: 'Invalid price values in sessions',
+            value: {
+              statusCode: 400,
+              message: [
+                'price must be at least 0.01',
+                'priceVIP must be at least 0.01',
+              ],
+              error: 'Bad Request',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized — missing or invalid auth token',
+    schema: { example: { statusCode: 401, message: 'Unauthorized' } },
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden — user lacks admin rights',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Доступ заборонено. Тільки для адміністраторів',
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Internal server error or database transaction failure',
+    content: {
+      'application/json': {
+        examples: {
+          databaseError: {
+            summary: 'Database connection or transaction error',
+            value: {
+              statusCode: 500,
+              message: 'Виникла неочікувана помилка.',
+              error: 'Internal Server Error',
+            },
+          },
+          transactionFailure: {
+            summary: 'Database transaction failed',
+            value: {
+              statusCode: 500,
+              message: 'Виникла неочікувана помилка.',
+              error: 'Internal Server Error',
+            },
+          },
+        },
+      },
+    },
+  })
+  async createMovie(
+    @Body() dto: AddMovieRequestDTO,
+    @Request() req: { user: User },
+  ) {
+    if (!req.user.is_admin) {
+      throw new ForbiddenException(
+        `Доступ заборонено. Тільки для адміністраторів`,
+      );
+    }
+
+    try {
+      const result = await this.movieService.createMovie(dto);
+      return {
+        status: 201,
+        message: 'Фільм створено успішно!',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Movie creation error:', error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
       throw new InternalServerErrorException('Виникла неочікувана помилка.');
     }
   }
