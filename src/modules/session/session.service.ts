@@ -135,6 +135,7 @@ export class SessionService {
       where: {
         movie_id: Number(id),
         date: dateFilter,
+        is_deleted: false,
       },
       orderBy: {
         date: 'asc',
@@ -142,6 +143,7 @@ export class SessionService {
       select: {
         id: true,
         date: true,
+        session_type_id: true,
       },
     });
 
@@ -150,6 +152,7 @@ export class SessionService {
       return new GetAvSesnsByMovIDRespDTO({
         id: session.id,
         date: TZDate,
+        session_type_id: session.session_type_id,
       });
     });
   }
@@ -203,6 +206,7 @@ export class SessionService {
     dto.price = session.price;
     dto.price_VIP = session.price_VIP;
     dto.session_type_id = session.session_type_id;
+    dto.is_deleted = session.is_deleted;
     dto.seats = seats;
     return dto;
   }
