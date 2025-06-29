@@ -23,7 +23,8 @@ export class HallsService {
     }
 
     return hall;
-    
+  }
+
   async existsById(hall_id: number): Promise<boolean> {
     const hall = await prismaClient.hall.findUnique({
       where: { id: hall_id },
