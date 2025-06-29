@@ -223,6 +223,17 @@ export class SessionService {
     return dto;
   }
 
+  async getSessionByID(sessionID: number) {
+    const session = await prismaClient.session.findUnique({
+      where: { id: sessionID },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Сеанс з ID ${sessionID} не знайдено.`);
+    }
+
+    return session;
+
   async validateSessionsNoOverlap(dtos: AddSessionRequestDTO[]) {
     if (dtos.length === 0) return;
 
