@@ -130,6 +130,7 @@ export class SessionService {
       where: {
         movie_id: Number(id),
         date: dateFilter,
+        is_deleted: false,
       },
       orderBy: {
         date: 'asc',
@@ -137,6 +138,12 @@ export class SessionService {
       select: {
         id: true,
         date: true,
+        session_type_id: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
 
@@ -145,6 +152,8 @@ export class SessionService {
       return new GetAvSesnsByMovIDRespDTO({
         id: session.id,
         date: TZDate,
+        session_type_id: session.session_type_id,
+        bookings_count: session._count.bookings,
       });
     });
   }
@@ -179,6 +188,11 @@ export class SessionService {
       include: {
         hall: true,
         bookings: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
     if (!session) return null;
@@ -198,8 +212,22 @@ export class SessionService {
     dto.price = session.price;
     dto.price_VIP = session.price_VIP;
     dto.session_type_id = session.session_type_id;
+    dto.is_deleted = session.is_deleted;
+    dto.bookings_count = session._count.bookings;
     dto.seats = seats;
     return dto;
+  }
+
+  async getSessionByID(sessionID: number) {
+    const session = await prismaClient.session.findUnique({
+      where: { id: sessionID },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Сеанс з ID ${sessionID} не знайдено.`);
+    }
+
+    return session;
   }
 
   async validateSessionsNoOverlap(
@@ -440,5 +468,16 @@ export class SessionService {
     );
 
     return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate}`;
+  }
+
+  async deleteById(session_id: number): Promise<void> {
+    await prismaClient.session.update({
+      where: {
+        id: session_id,
+      },
+      data: {
+        is_deleted: true,
+      },
+    });
   }
 }

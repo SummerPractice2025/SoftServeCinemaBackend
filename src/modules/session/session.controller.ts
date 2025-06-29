@@ -14,6 +14,7 @@ import {
   NotFoundException,
   Put,
   UsePipes,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -155,14 +156,15 @@ export class SessionController {
 
   @Get('by-movie/:movie_id')
   @ApiOperation({
-    description: 'Get all relevant sessions (by time) by movie id',
+    description:
+      'Get all relevant sessions (by time) by movie id and not deleted (is_deleted = false)',
   })
   @ApiOkResponse({
     description: 'Array of sessions for the movie',
     schema: {
       example: [
-        { id: 1, date: '2025-07-01 18:00:00' },
-        { id: 2, date: '2025-07-01 21:00:00' },
+        { id: 1, date: '2025-07-01 18:00:00', session_type_id: 3 },
+        { id: 2, date: '2025-07-01 21:00:00', session_type_id: 1 },
       ],
     },
   })
@@ -511,6 +513,105 @@ export class SessionController {
         throw error;
       }
       if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Delete(':session_id')
+  @ApiOperation({
+    summary: 'Soft delete a session by its ID (admin only)',
+    description:
+      'Marks the session as deleted by setting the "is_deleted" flag to true. Requires admin privileges.',
+  })
+  @ApiParam({
+    name: 'session_id',
+    type: String,
+    description: 'ID of the session to be deleted',
+    example: '12',
+  })
+  @ApiOkResponse({
+    description: 'Session successfully soft-deleted',
+    schema: {
+      example: {
+        status: 200,
+        message: 'Сеанс видалено успішно!',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid session ID format',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Некоректний id сеансу!',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'User is not authorized (admin access required)',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Доступ заборонено. Тільки для адміністраторів.',
+        error: 'Forbidden',
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'Сеанс із id 12 не знайдено!',
+        error: 'Not Found',
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    schema: {
+      example: {
+        statusCode: 500,
+        message: 'Виникла неочікувана помилка.',
+        error: 'Internal Server Error',
+      },
+    },
+  })
+  async deleteSession(
+    @Param('session_id') session_id: string,
+    @Request() req: { user: User },
+  ) {
+    try {
+      if (!req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів.',
+        );
+      }
+
+      if (!this.commonService.isValidId(session_id)) {
+        throw new BadRequestException('Некоректний id сеансу!');
+      }
+      const sessionId = Number(session_id);
+
+      if (!(await this.sessionService.existsById(sessionId))) {
+        throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+      }
+
+      await this.sessionService.deleteById(sessionId);
+      return { status: 200, message: 'Сеанс видалено успішно!' };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ForbiddenException) {
         throw error;
       }
 
