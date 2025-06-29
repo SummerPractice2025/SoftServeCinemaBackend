@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
+import { PrismaClient, Prisma } from 'generated/prisma';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
-import { Prisma } from 'generated/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
@@ -16,6 +16,8 @@ import { HallsService } from '../halls/halls.service';
 const BREAK_BUFFER_MINUTES = 15;
 const TIME_ZONE = 'Europe/Kyiv';
 const TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
+
+type CustomPrismaClient = PrismaClient | Prisma.TransactionClient;
 
 @Injectable()
 export class SessionService {
@@ -34,13 +36,6 @@ export class SessionService {
 
   async addSessions(dtos: AddSessionRequestDTO[]) {
     if (dtos.length === 0) return;
-
-    const uniqueDates = new Set(
-      dtos.map((dto) => new Date(dto.date).toISOString()),
-    );
-    if (uniqueDates.size !== dtos.length) {
-      throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
-    }
 
     await this.validateSessionsNoOverlap(dtos);
 
@@ -233,9 +228,20 @@ export class SessionService {
     }
 
     return session;
+  }
 
-  async validateSessionsNoOverlap(dtos: AddSessionRequestDTO[]) {
+  async validateSessionsNoOverlap(
+    dtos: AddSessionRequestDTO[],
+    prisma: CustomPrismaClient = prismaClient,
+  ) {
     if (dtos.length === 0) return;
+
+    const uniqueDates = new Set(
+      dtos.map((dto) => new Date(dto.date).toISOString()),
+    );
+    if (uniqueDates.size !== dtos.length) {
+      throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
+    }
 
     const movieDurations = new Map<number, number>();
 
@@ -247,11 +253,13 @@ export class SessionService {
     const sessionsByHall = new Map<number, SessionInfo[]>();
 
     for (const dto of dtos) {
+      this.validateDate(dto.date);
+
       const sessionStartUTC = fromZonedTime(new Date(dto.date), 'Europe/Kyiv');
 
       let duration = movieDurations.get(dto.movieID);
       if (duration === undefined) {
-        const movie = await prismaClient.movie.findUnique({
+        const movie = await prisma.movie.findUnique({
           where: { id: dto.movieID },
           select: { duration: true },
         });
@@ -271,9 +279,10 @@ export class SessionService {
         duration,
       });
 
-      const previousSession = await prismaClient.session.findFirst({
+      const previousSession = await prisma.session.findFirst({
         where: {
           hall_id: dto.hallID,
+          is_deleted: false,
           date: {
             lte: sessionStartUTC,
           },
@@ -298,14 +307,16 @@ export class SessionService {
               dto.hallID,
               sessionStartUTC,
               previousSession.date,
+              prisma,
             ),
           );
         }
       }
 
-      const nextSession = await prismaClient.session.findFirst({
+      const nextSession = await prisma.session.findFirst({
         where: {
           hall_id: dto.hallID,
+          is_deleted: false,
           date: {
             gte: sessionStartUTC,
           },
@@ -330,6 +341,7 @@ export class SessionService {
               dto.hallID,
               sessionStartUTC,
               nextSession.date,
+              prisma,
             ),
           );
         }
@@ -349,7 +361,12 @@ export class SessionService {
         );
         if (curr.start < prevEnd) {
           throw new BadRequestException(
-            await this.getSessionOverlapError(hallID, prev.start, curr.start),
+            await this.getSessionOverlapError(
+              hallID,
+              prev.start,
+              curr.start,
+              prisma,
+            ),
           );
         }
       }
@@ -370,7 +387,7 @@ export class SessionService {
     const updateData: Prisma.SessionUpdateInput = {};
 
     if (dto.date !== undefined) {
-      this.validaDate(dto.date);
+      this.validateDate(dto.date);
       updateData.date = fromZonedTime(new Date(dto.date), tZ);
     }
     if (dto.price !== undefined) {
@@ -407,7 +424,7 @@ export class SessionService {
     });
   }
 
-  public validaDate(date: string) {
+  public validateDate(date: string) {
     const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
     const spaceFormat = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
@@ -432,8 +449,9 @@ export class SessionService {
     hallID: number,
     currentSessionDateUTC: Date,
     overlappingSessionDateUTC: Date,
+    prisma: CustomPrismaClient = prismaClient,
   ) {
-    const hall = await prismaClient.hall.findUnique({
+    const hall = await prisma.hall.findUnique({
       where: { id: hallID },
       select: { name: true },
     });
