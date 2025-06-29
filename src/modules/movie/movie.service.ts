@@ -306,9 +306,13 @@ export class MovieService {
         },
       });
 
+      await this.sessionService.validateSessionsNoOverlap(
+        sessions.map((dto) => ({ ...dto, movieID: movie.id })),
+        tx,
+      );
+
       for (const session of sessions) {
         const parsed = new Date(session.date.replace(' ', 'T'));
-        this.sessionService.validaDate(session.date);
 
         await tx.session.create({
           data: {
