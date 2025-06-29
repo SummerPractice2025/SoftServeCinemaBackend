@@ -144,6 +144,11 @@ export class SessionService {
         id: true,
         date: true,
         session_type_id: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
 
@@ -153,6 +158,7 @@ export class SessionService {
         id: session.id,
         date: TZDate,
         session_type_id: session.session_type_id,
+        bookings_count: session._count.bookings,
       });
     });
   }
@@ -187,6 +193,11 @@ export class SessionService {
       include: {
         hall: true,
         bookings: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
     if (!session) return null;
@@ -207,6 +218,7 @@ export class SessionService {
     dto.price_VIP = session.price_VIP;
     dto.session_type_id = session.session_type_id;
     dto.is_deleted = session.is_deleted;
+    dto.bookings_count = session._count.bookings;
     dto.seats = seats;
     return dto;
   }
@@ -216,7 +228,6 @@ export class SessionService {
 
     const movieDurations = new Map<number, number>();
 
-    // Prepare session info for batch overlap check
     type SessionInfo = {
       hallID: number;
       start: Date;
@@ -240,7 +251,6 @@ export class SessionService {
         movieDurations.set(dto.movieID, duration);
       }
 
-      // Gather for batch check
       if (!sessionsByHall.has(dto.hallID)) {
         sessionsByHall.set(dto.hallID, []);
       }
@@ -429,5 +439,16 @@ export class SessionService {
     );
 
     return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate}`;
+  }
+
+  async deleteById(session_id: number): Promise<void> {
+    await prismaClient.session.update({
+      where: {
+        id: session_id,
+      },
+      data: {
+        is_deleted: true,
+      },
+    });
   }
 }
