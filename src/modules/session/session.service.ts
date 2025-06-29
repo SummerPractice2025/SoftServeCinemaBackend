@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { prismaClient } from 'src/db/prismaClient';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
@@ -6,9 +10,17 @@ import { Prisma } from 'generated/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
+import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
+import { HallsService } from '../halls/halls.service';
+
+const BREAK_BUFFER_MINUTES = 15;
+const TIME_ZONE = 'Europe/Kyiv';
+const TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
 
 @Injectable()
 export class SessionService {
+  constructor(private readonly hallsService: HallsService) {}
+
   async getSessionTypes(): Promise<GetSessionTypesResponseDTO[]> {
     const response = await prismaClient.sessionType.findMany({
       orderBy: {
@@ -22,6 +34,15 @@ export class SessionService {
 
   async addSessions(dtos: AddSessionRequestDTO[]) {
     if (dtos.length === 0) return;
+
+    const uniqueDates = new Set(
+      dtos.map((dto) => new Date(dto.date).toISOString()),
+    );
+    if (uniqueDates.size !== dtos.length) {
+      throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
+    }
+
+    await this.validateSessionsNoOverlap(dtos);
 
     const sessionsToCreate = dtos.map((dto) => ({
       movie_id: dto.movieID,
@@ -74,7 +95,6 @@ export class SessionService {
     startDate?: string,
     endDate?: string,
   ): Promise<GetAvSesnsByMovIDRespDTO[]> {
-    const tZ = 'Europe/Kyiv';
     const nowUtc = new Date();
 
     const parsedStartDate = startDate
@@ -84,7 +104,7 @@ export class SessionService {
               ? `${startDate}T${'00:00:00'}`
               : startDate,
           ),
-          tZ,
+          TIME_ZONE,
         )
       : undefined;
 
@@ -95,7 +115,7 @@ export class SessionService {
               ? `${endDate}T${'23:59:59'}`
               : endDate,
           ),
-          tZ,
+          TIME_ZONE,
         )
       : undefined;
 
@@ -115,6 +135,7 @@ export class SessionService {
       where: {
         movie_id: Number(id),
         date: dateFilter,
+        is_deleted: false,
       },
       orderBy: {
         date: 'asc',
@@ -122,14 +143,22 @@ export class SessionService {
       select: {
         id: true,
         date: true,
+        session_type_id: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
 
     return sessions.map((session) => {
-      const TZDate = formatInTimeZone(session.date, tZ, 'yyyy-MM-dd HH:mm:ss');
+      const TZDate = formatInTimeZone(session.date, TIME_ZONE, TIME_FORMAT);
       return new GetAvSesnsByMovIDRespDTO({
         id: session.id,
         date: TZDate,
+        session_type_id: session.session_type_id,
+        bookings_count: session._count.bookings,
       });
     });
   }
@@ -138,7 +167,18 @@ export class SessionService {
     const session = await prismaClient.session.findUnique({
       where: { id: session_id },
     });
-    return !!session;
+
+    if (!session) return false;
+    return true;
+  }
+
+  async existsSessionTypeById(session_type_id: number): Promise<boolean> {
+    const sessionType = await prismaClient.sessionType.findUnique({
+      where: { id: session_type_id },
+    });
+
+    if (!sessionType) return false;
+    return true;
   }
 
   async getSessionInfoById(
@@ -153,6 +193,11 @@ export class SessionService {
       include: {
         hall: true,
         bookings: true,
+        _count: {
+          select: {
+            bookings: true,
+          },
+        },
       },
     });
     if (!session) return null;
@@ -164,8 +209,7 @@ export class SessionService {
       col: b.col_y,
     }));
 
-    const tZ = 'Europe/Kyiv';
-    const date_time = formatInTimeZone(session.date, tZ, 'yyyy-MM-dd HH:mm:ss');
+    const date_time = formatInTimeZone(session.date, TIME_ZONE, TIME_FORMAT);
 
     const dto = new GetSessionByIdResponseDTO();
     dto.hall_name = session.hall.name;
@@ -173,6 +217,8 @@ export class SessionService {
     dto.price = session.price;
     dto.price_VIP = session.price_VIP;
     dto.session_type_id = session.session_type_id;
+    dto.is_deleted = session.is_deleted;
+    dto.bookings_count = session._count.bookings;
     dto.seats = seats;
     return dto;
   }
@@ -187,5 +233,233 @@ export class SessionService {
     }
 
     return session;
+
+  async validateSessionsNoOverlap(dtos: AddSessionRequestDTO[]) {
+    if (dtos.length === 0) return;
+
+    const movieDurations = new Map<number, number>();
+
+    type SessionInfo = {
+      hallID: number;
+      start: Date;
+      duration: number;
+    };
+    const sessionsByHall = new Map<number, SessionInfo[]>();
+
+    for (const dto of dtos) {
+      const sessionStartUTC = fromZonedTime(new Date(dto.date), 'Europe/Kyiv');
+
+      let duration = movieDurations.get(dto.movieID);
+      if (duration === undefined) {
+        const movie = await prismaClient.movie.findUnique({
+          where: { id: dto.movieID },
+          select: { duration: true },
+        });
+        if (!movie) {
+          throw new NotFoundException(`Фільм з ID ${dto.movieID} не знайдено`);
+        }
+        duration = movie.duration;
+        movieDurations.set(dto.movieID, duration);
+      }
+
+      if (!sessionsByHall.has(dto.hallID)) {
+        sessionsByHall.set(dto.hallID, []);
+      }
+      sessionsByHall.get(dto.hallID)!.push({
+        hallID: dto.hallID,
+        start: sessionStartUTC,
+        duration,
+      });
+
+      const previousSession = await prismaClient.session.findFirst({
+        where: {
+          hall_id: dto.hallID,
+          date: {
+            lte: sessionStartUTC,
+          },
+        },
+        orderBy: {
+          date: 'desc',
+        },
+        select: {
+          date: true,
+          movie: { select: { duration: true } },
+        },
+      });
+
+      if (previousSession) {
+        const prevSessionEnd = this.addMinutes(
+          previousSession.date,
+          previousSession.movie.duration + BREAK_BUFFER_MINUTES,
+        );
+        if (sessionStartUTC < prevSessionEnd) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(
+              dto.hallID,
+              sessionStartUTC,
+              previousSession.date,
+            ),
+          );
+        }
+      }
+
+      const nextSession = await prismaClient.session.findFirst({
+        where: {
+          hall_id: dto.hallID,
+          date: {
+            gte: sessionStartUTC,
+          },
+        },
+        orderBy: {
+          date: 'asc',
+        },
+        select: {
+          date: true,
+          movie: { select: { duration: true } },
+        },
+      });
+
+      if (nextSession) {
+        const newSessionEnd = this.addMinutes(
+          sessionStartUTC,
+          duration + BREAK_BUFFER_MINUTES,
+        );
+        if (newSessionEnd > nextSession.date) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(
+              dto.hallID,
+              sessionStartUTC,
+              nextSession.date,
+            ),
+          );
+        }
+      }
+    }
+
+    for (const [hallID, sessions] of sessionsByHall.entries()) {
+      sessions.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      for (let i = 1; i < sessions.length; i++) {
+        const prev = sessions[i - 1];
+        const curr = sessions[i];
+
+        const prevEnd = this.addMinutes(
+          prev.start,
+          prev.duration + BREAK_BUFFER_MINUTES,
+        );
+        if (curr.start < prevEnd) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(hallID, prev.start, curr.start),
+          );
+        }
+      }
+    }
+  }
+
+  async updateSession(
+    session_id: number,
+    dto: UpdateSessionRequestDTO,
+  ): Promise<void> {
+    const exists = await this.existsById(session_id);
+
+    if (!exists) {
+      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+    }
+
+    const tZ = 'Europe/Kyiv';
+    const updateData: Prisma.SessionUpdateInput = {};
+
+    if (dto.date !== undefined) {
+      this.validaDate(dto.date);
+      updateData.date = fromZonedTime(new Date(dto.date), tZ);
+    }
+    if (dto.price !== undefined) {
+      updateData.price = dto.price;
+    }
+    if (dto.price_VIP !== undefined) {
+      updateData.price_VIP = dto.price_VIP;
+    }
+    if (dto.hall_id !== undefined) {
+      const hallExists = await this.hallsService.existsById(dto.hall_id);
+      if (!hallExists) {
+        throw new BadRequestException(`Зал із id ${dto.hall_id} не знайдено!`);
+      }
+      updateData.hall = { connect: { id: dto.hall_id } };
+    }
+    if (dto.session_type_id !== undefined) {
+      const sessionTypeExists = await this.existsSessionTypeById(
+        dto.session_type_id,
+      );
+      if (!sessionTypeExists) {
+        throw new BadRequestException(
+          `Тип сеансу із id ${dto.session_type_id} не знайдено!`,
+        );
+      }
+      updateData.sessionType = { connect: { id: dto.session_type_id } };
+    }
+    if (dto.is_deleted !== undefined) {
+      updateData.is_deleted = dto.is_deleted;
+    }
+
+    await prismaClient.session.update({
+      where: { id: session_id },
+      data: updateData,
+    });
+  }
+
+  public validaDate(date: string) {
+    const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+    const spaceFormat = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+    if (!isoFormat.test(date) && !spaceFormat.test(date)) {
+      throw new BadRequestException(
+        'Дата має бути у форматі "YYYY-MM-DDTHH:mm:ss" або "YYYY-MM-DD HH:mm:ss!"',
+      );
+    }
+
+    const parsed = new Date(date.replace(' ', 'T'));
+
+    if (isNaN(parsed.getTime())) {
+      throw new BadRequestException('Некотректний дата або час.');
+    }
+  }
+
+  private addMinutes(date: Date, minutes: number): Date {
+    return new Date(date.getTime() + minutes * 60_000);
+  }
+
+  private async getSessionOverlapError(
+    hallID: number,
+    currentSessionDateUTC: Date,
+    overlappingSessionDateUTC: Date,
+  ) {
+    const hall = await prismaClient.hall.findUnique({
+      where: { id: hallID },
+      select: { name: true },
+    });
+
+    const currentSessionDate = formatInTimeZone(
+      currentSessionDateUTC,
+      TIME_ZONE,
+      TIME_FORMAT,
+    );
+    const overlappingSessionDate = formatInTimeZone(
+      overlappingSessionDateUTC,
+      TIME_ZONE,
+      TIME_FORMAT,
+    );
+
+    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate}`;
+  }
+
+  async deleteById(session_id: number): Promise<void> {
+    await prismaClient.session.update({
+      where: {
+        id: session_id,
+      },
+      data: {
+        is_deleted: true,
+      },
+    });
   }
 }

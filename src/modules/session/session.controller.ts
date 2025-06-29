@@ -12,6 +12,9 @@ import {
   Optional,
   Query,
   NotFoundException,
+  Put,
+  UsePipes,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiOkResponse,
@@ -32,11 +35,17 @@ import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
 import { User } from 'generated/prisma';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
+import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
+import { CommonService } from '../common/common.service';
+import { ValidationPipe } from '@nestjs/common';
 
 @ApiTags('session')
 @Controller('session')
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(
+    private readonly sessionService: SessionService,
+    private readonly commonService: CommonService,
+  ) {}
 
   @Get('types')
   @ApiOperation({
@@ -81,7 +90,41 @@ export class SessionController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'The request contains errors or invalid data',
+    description: 'Validation failed or session conflicts found',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Some error message',
+        error: 'Bad Request',
+      },
+    },
+    examples: {
+      duplicateDates: {
+        summary: 'Duplicate session dates in request',
+        value: {
+          statusCode: 400,
+          message: 'Усі сеанси повинні мати унікальні дати.',
+          error: 'Bad Request',
+        },
+      },
+      movieNotFound: {
+        summary: 'Movie not found',
+        value: {
+          statusCode: 400,
+          message: 'Фільм з ID 42 не знайдено',
+          error: 'Bad Request',
+        },
+      },
+      sessionConflict: {
+        summary: 'Session time conflict',
+        value: {
+          statusCode: 400,
+          message:
+            'Сеанс о 2025-06-28 16:00:00 у залі Зал 2 конфліктує з сеансом о 2025-06-28 15:30:00',
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiForbiddenResponse({
     description: 'Access denied. Only admins can add sessions.',
@@ -113,14 +156,15 @@ export class SessionController {
 
   @Get('by-movie/:movie_id')
   @ApiOperation({
-    description: 'Get all relevant sessions (by time) by movie id',
+    description:
+      'Get all relevant sessions (by time) by movie id and not deleted (is_deleted = false)',
   })
   @ApiOkResponse({
     description: 'Array of sessions for the movie',
     schema: {
       example: [
-        { id: 1, date: '2025-07-01 18:00:00' },
-        { id: 2, date: '2025-07-01 21:00:00' },
+        { id: 1, date: '2025-07-01 18:00:00', session_type_id: 3 },
+        { id: 2, date: '2025-07-01 21:00:00', session_type_id: 1 },
       ],
     },
   })
@@ -145,7 +189,15 @@ export class SessionController {
     @Optional() @Query('start_date') startDate?: string,
     @Optional() @Query('end_date') endDate?: string,
   ) {
-    return this.sessionService.getAvSessnsByMovieId(id, startDate, endDate);
+    if (!this.commonService.isValidId(id)) {
+      throw new BadRequestException('Некоректний id фільму!');
+    }
+    const movieId = Number(id);
+    return this.sessionService.getAvSessnsByMovieId(
+      movieId.toString(),
+      startDate,
+      endDate,
+    );
   }
 
   @Get(':session_id')
@@ -194,14 +246,376 @@ export class SessionController {
     },
   })
   async getSessionById(@Param('session_id') session_id: string) {
-    const id = Number(session_id);
-    if (isNaN(id) || id <= 0) {
+    if (!this.commonService.isValidId(session_id)) {
       throw new BadRequestException('Некоректний id сеансу!');
     }
-    const sessionInfo = await this.sessionService.getSessionInfoById(id);
+    const sessionInfo = await this.sessionService.getSessionInfoById(
+      Number(session_id),
+    );
     if (!sessionInfo) {
-      throw new NotFoundException(`Сеанс із id ${id} не знайдено!`);
+      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
     }
     return sessionInfo;
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Put(':session_id')
+  @ApiOperation({
+    summary: 'Update an existing session',
+    description:
+      'Updates session information. Only administrators can update sessions. All fields are optional - only provided fields will be updated.',
+  })
+  @ApiParam({
+    name: 'session_id',
+    type: Number,
+    required: true,
+    description: 'Session ID to update',
+    example: 123,
+  })
+  @ApiBody({
+    type: UpdateSessionRequestDTO,
+    description: 'Session update data - all fields are optional',
+    examples: {
+      validFull: {
+        summary: 'All fields present',
+        value: {
+          date: '2025-07-01T18:00:00',
+          price: 120.0,
+          price_VIP: 200.0,
+          hall_id: 2,
+          session_type_id: 1,
+          is_deleted: false,
+        },
+      },
+      validNoIsDeleted: {
+        summary: 'Without is_deleted field',
+        value: {
+          date: '2025-08-15T21:30:00',
+          price: 150.5,
+          price_VIP: 250.0,
+          hall_id: 3,
+          session_type_id: 2,
+        },
+      },
+      validDateWithSpace: {
+        summary: 'Date with space separator',
+        value: {
+          date: '2025-09-10 14:00:00',
+          price: 100,
+          price_VIP: 180,
+          hall_id: 1,
+          session_type_id: 1,
+          is_deleted: true,
+        },
+      },
+      validStringNumbers: {
+        summary: 'String numbers (will be converted)',
+        value: {
+          price: '120.5',
+          price_VIP: '200',
+          hall_id: '2',
+          session_type_id: '1',
+        },
+      },
+      validMinimal: {
+        summary: 'Minimal update - only one field',
+        value: {
+          price: 150.0,
+        },
+      },
+      invalidEmpty: {
+        summary: 'Empty object (will be rejected)',
+        value: {},
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Session updated successfully',
+    schema: {
+      example: {
+        status: 200,
+        message: 'Інфо про сеанс оновлено успішно!',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data',
+    content: {
+      'application/json': {
+        examples: {
+          emptyDto: {
+            summary: 'Empty DTO provided',
+            value: {
+              statusCode: 400,
+              message: 'Відсутні поля для оновлення!',
+              error: 'Bad Request',
+            },
+          },
+          invalidDate: {
+            summary: 'Invalid date format',
+            value: {
+              statusCode: 400,
+              message:
+                'Дата має бути у форматі "YYYY-MM-DDTHH:mm:ss" або "YYYY-MM-DD HH:mm:ss!"',
+              error: 'Bad Request',
+            },
+          },
+          invalidPrice: {
+            summary: 'Invalid price value',
+            value: {
+              statusCode: 400,
+              message: 'Price must be a valid number',
+              error: 'Bad Request',
+            },
+          },
+          invalidPriceRange: {
+            summary: 'Price below minimum',
+            value: {
+              statusCode: 400,
+              message: 'price must not be less than 0.01',
+              error: 'Bad Request',
+            },
+          },
+          invalidVipPrice: {
+            summary: 'Invalid VIP price value',
+            value: {
+              statusCode: 400,
+              message: 'VIP price must be a valid number',
+              error: 'Bad Request',
+            },
+          },
+          invalidVipPriceRange: {
+            summary: 'VIP price below minimum',
+            value: {
+              statusCode: 400,
+              message: 'price_VIP must not be less than 0.01',
+              error: 'Bad Request',
+            },
+          },
+          invalidHallId: {
+            summary: 'Invalid hall ID type',
+            value: {
+              statusCode: 400,
+              message: 'Hall ID must be a valid integer',
+              error: 'Bad Request',
+            },
+          },
+          invalidHallNotFound: {
+            summary: 'Hall not found',
+            value: {
+              statusCode: 400,
+              message: 'Зал із id 999 не знайдено!',
+              error: 'Bad Request',
+            },
+          },
+          invalidSessionTypeId: {
+            summary: 'Invalid session type ID type',
+            value: {
+              statusCode: 400,
+              message: 'Session type ID must be a valid integer',
+              error: 'Bad Request',
+            },
+          },
+          invalidSessionTypeNotFound: {
+            summary: 'Session type not found',
+            value: {
+              statusCode: 400,
+              message: 'Тип сеансу із id 999 не знайдено!',
+              error: 'Bad Request',
+            },
+          },
+          invalidBoolean: {
+            summary: 'Invalid boolean value',
+            value: {
+              statusCode: 400,
+              message: 'is_deleted must be a boolean value',
+              error: 'Bad Request',
+            },
+          },
+          invalidSessionId: {
+            summary: 'Invalid session ID parameter',
+            value: {
+              statusCode: 400,
+              message: 'Некоректний id сеансу!',
+              error: 'Bad Request',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'Access denied - admin privileges required',
+    content: {
+      'application/json': {
+        example: {
+          statusCode: 403,
+          message: 'Доступ заборонено. Тільки для адміністраторів.',
+          error: 'Forbidden',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found in database',
+    content: {
+      'application/json': {
+        example: {
+          statusCode: 404,
+          message: 'Сеанс із id 123 не знайдено!',
+          error: 'Not Found',
+        },
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    content: {
+      'application/json': {
+        example: {
+          statusCode: 500,
+          message: 'Виникла неочікувана помилка.',
+          error: 'Internal Server Error',
+        },
+      },
+    },
+  })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updateSession(
+    @Param('session_id') session_id: string,
+    @Body() dto: UpdateSessionRequestDTO,
+    @Request() req: { user: User },
+  ) {
+    try {
+      if (!this.commonService.isValidId(session_id)) {
+        throw new BadRequestException('Некоректний id сеансу!');
+      }
+      const sessionId = Number(session_id);
+
+      if (!req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів.',
+        );
+      }
+
+      if (!(await this.sessionService.existsById(sessionId))) {
+        throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+      }
+
+      if (this.commonService.isDtoEmpty(dto)) {
+        throw new BadRequestException('Відсутні поля для оновлення!');
+      }
+
+      await this.sessionService.updateSession(sessionId, dto);
+      return { status: 200, message: 'Інфо про сеанс оновлено успішно!' };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Delete(':session_id')
+  @ApiOperation({
+    summary: 'Soft delete a session by its ID (admin only)',
+    description:
+      'Marks the session as deleted by setting the "is_deleted" flag to true. Requires admin privileges.',
+  })
+  @ApiParam({
+    name: 'session_id',
+    type: String,
+    description: 'ID of the session to be deleted',
+    example: '12',
+  })
+  @ApiOkResponse({
+    description: 'Session successfully soft-deleted',
+    schema: {
+      example: {
+        status: 200,
+        message: 'Сеанс видалено успішно!',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid session ID format',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Некоректний id сеансу!',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'User is not authorized (admin access required)',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Доступ заборонено. Тільки для адміністраторів.',
+        error: 'Forbidden',
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'Сеанс із id 12 не знайдено!',
+        error: 'Not Found',
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    schema: {
+      example: {
+        statusCode: 500,
+        message: 'Виникла неочікувана помилка.',
+        error: 'Internal Server Error',
+      },
+    },
+  })
+  async deleteSession(
+    @Param('session_id') session_id: string,
+    @Request() req: { user: User },
+  ) {
+    try {
+      if (!req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів.',
+        );
+      }
+
+      if (!this.commonService.isValidId(session_id)) {
+        throw new BadRequestException('Некоректний id сеансу!');
+      }
+      const sessionId = Number(session_id);
+
+      if (!(await this.sessionService.existsById(sessionId))) {
+        throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+      }
+
+      await this.sessionService.deleteById(sessionId);
+      return { status: 200, message: 'Сеанс видалено успішно!' };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
   }
 }

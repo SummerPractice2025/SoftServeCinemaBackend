@@ -75,6 +75,7 @@ model Session {
   price_VIP       Float
   hall_id         Int
   session_type_id Int
+  is_deleted      Boolean     @default(false)
   movie           Movie       @relation(fields: [movie_id], references: [id])
   hall            Hall        @relation(fields: [hall_id], references: [id])
   sessionType     SessionType @relation(fields: [session_type_id], references: [id])
