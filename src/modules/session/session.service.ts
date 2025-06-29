@@ -399,34 +399,6 @@ export class SessionService {
     }
   }
 
-    private addMinutes(date: Date, minutes: number): Date {
-    return new Date(date.getTime() + minutes * 60_000);
-  }
-
-  private async getSessionOverlapError(
-    hallID: number,
-    currentSessionDateUTC: Date,
-    overlappingSessionDateUTC: Date,
-  ) {
-    const hall = await prismaClient.hall.findUnique({
-      where: { id: hallID },
-      select: { name: true },
-    });
-
-    const currentSessionDate = formatInTimeZone(
-      currentSessionDateUTC,
-      TIME_ZONE,
-      TIME_FORMAT,
-    );
-    const overlappingSessionDate = formatInTimeZone(
-      overlappingSessionDateUTC,
-      TIME_ZONE,
-      TIME_FORMAT,
-    );
-
-    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate}`;
-  }  
-
   private addMinutes(date: Date, minutes: number): Date {
     return new Date(date.getTime() + minutes * 60_000);
   }
