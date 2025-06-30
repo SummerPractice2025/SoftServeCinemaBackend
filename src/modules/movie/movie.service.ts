@@ -101,8 +101,9 @@ export class MovieService {
     });
 
     return movies.map((movie) => {
-      const closestSession = movie.sessions[0];
-      const sessionType = closestSession.sessionType;
+      const closestSession =
+        movie.sessions.length > 0 ? movie.sessions[0] : null;
+      const sessionType = closestSession ? closestSession.sessionType : null;
 
       const genres = movie.genres.map((g) => g.genre);
 

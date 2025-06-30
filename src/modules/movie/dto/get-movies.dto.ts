@@ -37,8 +37,8 @@ export class GetMoviesResponseDTO {
   constructor(
     movie: Movie,
     genres: Genre[],
-    closestSession: Session,
-    sessionType: SessionType,
+    closestSession: Session | null,
+    sessionType: SessionType | null,
   ) {
     this.id = movie.id;
     this.name = movie.name;
@@ -49,7 +49,11 @@ export class GetMoviesResponseDTO {
 
     this.genreIDs = genres.map((genre) => genre.id);
 
-    this.session = new ClosestSessionDTO(closestSession, sessionType);
+    if (closestSession && sessionType) {
+      this.session = new ClosestSessionDTO(closestSession, sessionType);
+    } else {
+      this.session = {} as ClosestSessionDTO;
+    }
   }
 
   @ApiProperty({ description: 'Unique identifier of the movie' })
@@ -78,5 +82,5 @@ export class GetMoviesResponseDTO {
 
   @ApiProperty({ description: 'Session details' })
   @ValidateNested()
-  session: ClosestSessionDTO;
+  session: ClosestSessionDTO | null;
 }
