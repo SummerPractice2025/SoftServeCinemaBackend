@@ -15,4 +15,13 @@ export class UserService {
 
     return user;
   }
+
+  async isExist(userId: number): Promise<boolean> {
+    const user = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    return user !== null;
+  }
 }
