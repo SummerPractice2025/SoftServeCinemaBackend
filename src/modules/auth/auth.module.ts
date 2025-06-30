@@ -5,6 +5,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from '../user/user.module';
 import { AccessTokenStrategy } from './strategies/AccessTokenStrategy';
 import { CryptoModule } from '../crypto/crypto.module';
+import { AuthTokenService } from './auth-token.service';
+import { RefreshTokenStrategy } from './strategies/RefreshTokenStrategy';
 
 @Module({
   imports: [
@@ -15,6 +17,11 @@ import { CryptoModule } from '../crypto/crypto.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenStrategy],
+  providers: [
+    AuthService,
+    AuthTokenService,
+    AccessTokenStrategy,
+    RefreshTokenStrategy,
+  ],
 })
 export class AuthModule {}
