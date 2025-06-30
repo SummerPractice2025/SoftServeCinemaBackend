@@ -10,6 +10,7 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CommonModule } from './modules/common/common.module';
 import { BookingModule } from './modules/booking/booking.module';
+import { CryptoModule } from './modules/crypto/crypto.module';
 
 @Module({
   controllers: [AppController],
@@ -24,6 +25,7 @@ import { BookingModule } from './modules/booking/booking.module';
     AuthModule,
     CommonModule,
     BookingModule,
+    CryptoModule,
   ],
 })
 export class AppModule {}
