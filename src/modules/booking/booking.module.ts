@@ -8,5 +8,6 @@ import { HallsModule } from '../halls/halls.module';
   controllers: [BookingController],
   providers: [BookingService],
   imports: [SessionModule, HallsModule],
+  exports: [BookingService],
 })
 export class BookingModule {}

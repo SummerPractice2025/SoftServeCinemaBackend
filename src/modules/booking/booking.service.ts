@@ -4,6 +4,8 @@ import { AddBookingRequestDTO } from './dto/add-booking.dto';
 import { Hall, Session } from 'generated/prisma';
 import { SessionService } from '../session/session.service';
 import { HallsService } from '../halls/halls.service';
+import { formatInTimeZone } from 'date-fns-tz';
+import { UserBookingsDTO } from '../user/dto/get-user-by-id.dto';
 
 @Injectable()
 export class BookingService {
@@ -65,5 +67,41 @@ export class BookingService {
     });
 
     return { message: `Заброньовано ${dtos.length} місць.` };
+  }
+
+  async getBookingsByUserId(userId: number): Promise<UserBookingsDTO[]> {
+    const bookings = await prismaClient.booking.findMany({
+      where: {
+        user_id: userId,
+        session: {
+          date: { gte: new Date() },
+          is_deleted: false,
+        },
+      },
+      select: {
+        row_x: true,
+        col_y: true,
+        is_VIP: true,
+        session: {
+          select: {
+            movie: { select: { name: true, thumbnail_url: true } },
+            date: true,
+          },
+        },
+      },
+    });
+
+    const tZ = 'Europe/Kyiv';
+
+    return bookings.map((b) =>
+      Object.assign(new UserBookingsDTO(), {
+        seatRow: b.row_x,
+        seatCol: b.col_y,
+        isVIP: b.is_VIP,
+        movieName: b.session.movie.name,
+        moviePosterUrl: b.session.movie.thumbnail_url,
+        date: formatInTimeZone(b.session.date, tZ, 'yyyy-MM-dd HH:mm:ss'),
+      }),
+    );
   }
 }
