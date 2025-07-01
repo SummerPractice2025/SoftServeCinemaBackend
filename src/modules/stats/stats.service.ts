@@ -1,10 +1,10 @@
-import { prismaClient } from 'src/db/prismaClient';
 import { Injectable } from '@nestjs/common';
 import {
   FilmStatsFieldsDTO,
   TopFilmsRespDTO,
 } from './dto/get-stats-by-tickets.dto';
 import { Prisma } from 'generated/prisma';
+import { prismaClient } from 'src/db/prismaClient';
 
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
@@ -26,8 +26,9 @@ export class StatsService {
     const daysToUse = days ?? DEFAULT_DAYS;
     const countToUse = count ?? DEFAULT_COUNT;
 
-    const dateThreshold = new Date(Date.now() - daysToUse * MS_PER_DAY);
-    const dateOnlyThreshold = dateThreshold.toISOString().split('T')[0];
+    const now = new Date();
+    const dateThreshold = new Date(Date.now() - (daysToUse - 1) * MS_PER_DAY);
+    dateThreshold.setHours(0, 0, 0, 0);
 
     const rawResult = await prismaClient.$queryRaw<
       { film_name: string; sold_tickets: bigint }[]
@@ -39,19 +40,19 @@ export class StatsService {
           m.created_at
         FROM "Movie" m
         LEFT JOIN "Session" s
-          ON s.movie_id   = m.id
+          ON s.movie_id = m.id
           AND s.is_deleted = FALSE
-          AND s.date::date >= ${Prisma.sql`${dateOnlyThreshold}::date`}
+          AND s.date BETWEEN ${dateThreshold} AND ${now}
         LEFT JOIN "Booking" b
           ON b.session_id = s.id
         WHERE
           s.id IS NOT NULL
-          OR m.expires_at::date >= ${Prisma.sql`${dateOnlyThreshold}::date`}
+          OR m.expires_at BETWEEN ${dateThreshold} AND ${now}
         GROUP BY m.id, m.name, m.created_at
         ORDER BY
           sold_tickets DESC,
           m.created_at DESC
-        LIMIT ${Prisma.sql`${countToUse}`};
+        LIMIT ${countToUse};
       `,
     );
 
@@ -66,5 +67,40 @@ export class StatsService {
     responseDto.films = films;
 
     return responseDto;
+  }
+
+  async getSumMoneyPerDay(days?: number): Promise<{ money: number }> {
+    const DEFAULT_DAYS = 1;
+    const daysToUse = days ?? DEFAULT_DAYS;
+
+    const now = new Date();
+
+    const dateThreshold = new Date();
+    dateThreshold.setDate(now.getDate() - (daysToUse - 1));
+    dateThreshold.setHours(0, 0, 0, 0);
+
+    const bookings = await prismaClient.booking.findMany({
+      where: {
+        session: {
+          is_deleted: false,
+          date: {
+            gte: dateThreshold,
+            lte: now,
+          },
+        },
+      },
+      include: {
+        session: true,
+      },
+    });
+
+    const totalMoney = bookings.reduce((sum, booking) => {
+      const price = booking.is_VIP
+        ? booking.session.price_VIP
+        : booking.session.price;
+      return sum + (price || 0);
+    }, 0);
+
+    return { money: Number(totalMoney.toFixed(2)) };
   }
 }
