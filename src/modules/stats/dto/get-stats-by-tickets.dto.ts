@@ -5,7 +5,7 @@ export class FilmStatsFieldsDTO {
   film_name: string;
 
   @ApiProperty({
-    description: 'Number of tickets sold for the film',
+    description: 'Number of tickets sold for the film.',
     example: 154200000,
   })
   sold_tickets: number;
@@ -13,7 +13,8 @@ export class FilmStatsFieldsDTO {
 
 export class TopFilmsRespDTO {
   @ApiProperty({
-    description: 'List of top films sorted by tickets sold',
+    description:
+      'List of top films sorted by tickets sold, created_at movie (if tickets sold are the same number).',
     type: [FilmStatsFieldsDTO],
   })
   films: FilmStatsFieldsDTO[];
