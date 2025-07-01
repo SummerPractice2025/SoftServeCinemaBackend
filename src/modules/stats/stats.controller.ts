@@ -9,6 +9,8 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { TopFilmsRespDTO } from './dto/get-stats-by-tickets.dto';
 import { StatsService } from './stats.service';
@@ -20,6 +22,8 @@ import {
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiUnauthorizedResponse,
+  ApiOperation,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { User } from 'generated/prisma';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
@@ -139,6 +143,99 @@ export class StatsController {
       }
 
       return await this.statsService.getTopFilmsByTickets(days, count);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Get('money')
+  @HttpCode(HttpStatus.OK)
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Number of days to calculate earnings for (defaults to 1)',
+    type: Number,
+    example: 1,
+  })
+  @ApiOperation({
+    summary: 'Get total earnings over a period',
+    description:
+      'Returns the total money earned from bookings in the last N days. Only for administrators.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Total earnings retrieved successfully',
+    schema: {
+      example: {
+        money: 1234.56,
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized — missing or invalid auth token',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden — user lacks admin rights',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Доступ заборонено. Тільки для адміністраторів',
+        error: 'Forbidden',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query params',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Query param error!',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Internal server error',
+    schema: {
+      example: {
+        statusCode: 500,
+        message: 'Виникла неочікувана помилка.',
+        error: 'Internal Server Error',
+      },
+    },
+  })
+  async getStatsMoney(
+    @Request() req: { user: User },
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ): Promise<{ money: number }> {
+    try {
+      if (!req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів',
+        );
+      }
+
+      if (days !== undefined && days < 1) {
+        throw new BadRequestException('Query param error!');
+      }
+
+      return await this.statsService.getSumMoneyPerDay(days);
     } catch (error) {
       if (
         error instanceof BadRequestException ||
