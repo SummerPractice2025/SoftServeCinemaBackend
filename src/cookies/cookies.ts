@@ -1,14 +1,16 @@
 import { Request } from 'express';
 
+const MAX_AGE = 1000 * 60 * 60 * 24 * 30;
+
 export const cookieConfig = {
   refreshToken: {
     name: 'refreshToken',
     options: {
-      path: '/', // should set /auth/api/refresh-tokens path in production, we use / so it works on localhost on Chrome
+      path: '/',
       httpOnly: true,
       sameSite: 'strict' as const,
       secure: true,
-      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days, must match jwt expiration
+      maxAge: MAX_AGE,
     },
   },
 };

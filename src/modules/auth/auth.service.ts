@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -43,7 +44,7 @@ export class AuthService {
       !user ||
       this.cryptoService.generateSHA256HashBase64(dto.password) != user.password
     ) {
-      throw new BadRequestException(`Неправильний пароль або email.`);
+      throw new ForbiddenException(`Неправильний пароль або email.`);
     }
 
     return this.authTokenService.generateTokenPair(user, res);

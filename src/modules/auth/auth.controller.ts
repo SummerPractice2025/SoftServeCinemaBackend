@@ -11,6 +11,7 @@ import {
   ApiOkResponse,
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 
 @ApiTags('auth')
@@ -43,7 +44,7 @@ export class AuthController {
       example: { access_token: 'jwt.access.token.here' },
     },
   })
-  @ApiBadRequestResponse({
+  @ApiForbiddenResponse({
     description: 'Invalid email or password',
     schema: {
       example: {
