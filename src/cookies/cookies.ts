@@ -1,6 +1,12 @@
 import { Request } from 'express';
+import {
+  ONE_MINUTE,
+  ONE_SECOND,
+  ONE_DAY,
+  ONE_HOUR,
+} from 'src/common/constants';
 
-const MAX_AGE = 1000 * 60 * 60 * 24 * 30;
+const MAX_AGE = ONE_SECOND * ONE_MINUTE * ONE_HOUR * ONE_DAY * 30;
 
 export const cookieConfig = {
   refreshToken: {
