@@ -54,7 +54,7 @@ export class AuthService {
     await this.authTokenService.clearRefreshToken((req.user as User).id);
     res.clearCookie(cookieConfig.refreshToken.name);
 
-    return { message: 'Користувач успішно вийшов з аккаунту.' };
+    return { message: 'Користувач успішно вийшов з акаунту.' };
   }
 
   async refresh(req: Request, res: Response) {

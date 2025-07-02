@@ -67,7 +67,7 @@ export class AuthController {
   @ApiOkResponse({
     description: 'User successfully logged out',
     schema: {
-      example: { message: 'Користувач успішно вийшов з аккаунту.' },
+      example: { message: 'Користувач успішно вийшов з акаунту.' },
     },
   })
   @Post('sign-out')
