@@ -163,8 +163,18 @@ export class SessionController {
     description: 'Array of sessions for the movie',
     schema: {
       example: [
-        { id: 1, date: '2025-07-01 18:00:00', session_type_id: 3 },
-        { id: 2, date: '2025-07-01 21:00:00', session_type_id: 1 },
+        {
+          id: 1,
+          date: '2025-07-01 18:00:00',
+          session_type_id: 3,
+          bookings_count: 0,
+        },
+        {
+          id: 2,
+          date: '2025-07-01 21:00:00',
+          session_type_id: 1,
+          bookings_count: 3,
+        },
       ],
     },
   })
