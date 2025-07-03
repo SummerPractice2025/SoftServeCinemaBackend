@@ -95,11 +95,6 @@ export class MovieController {
     description: 'Movie not found',
     schema: {
       type: 'object',
-      properties: {
-        statusCode: { type: 'integer', example: 404 },
-        message: { type: 'string', example: 'Фільм з ID 1 не знайдено' },
-        error: { type: 'string', example: 'Not Found' },
-      },
       example: {
         statusCode: 404,
         message: 'Фільм з ID 1 не знайдено',
