@@ -11,7 +11,9 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { GetAvSesnsByMovIDRespDTO } from './dto/get-sessions-by-movie-id.dto';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
+import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { HallsService } from '../halls/halls.service';
+import { CommonService } from '../common/common.service';
 
 const BREAK_BUFFER_MINUTES = 15;
 const TIME_ZONE = 'Europe/Kyiv';
@@ -23,6 +25,7 @@ type SessionTimeSlotValidationInfo = {
   hallID: number;
   startUTC: Date;
   duration: number;
+  sessionID?: number;
 };
 
 type GetSessionUpdateDataResult = {
@@ -32,7 +35,10 @@ type GetSessionUpdateDataResult = {
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly hallsService: HallsService) {}
+  constructor(
+    private readonly hallsService: HallsService,
+    private readonly commonService: CommonService,
+  ) {}
 
   async getSessionTypes(): Promise<GetSessionTypesResponseDTO[]> {
     const response = await prismaClient.sessionType.findMany({
@@ -261,6 +267,50 @@ export class SessionService {
     });
   }
 
+  async updateSessions(dtos: UpdateSessionsRequestDTO[]) {
+    const updatePromises: Promise<any>[] = [];
+    const sessionsValidationInfoByHall = new Map<
+      number,
+      SessionTimeSlotValidationInfo[]
+    >();
+
+    for (const [index, dto] of dtos.entries()) {
+      if (this.commonService.isDtoEmpty(dto)) {
+        throw new BadRequestException(`Об'єкт з індексом ${index} пустий.`);
+      }
+
+      const { updateData, validationInfo } = await this.getSessionUpdateData(
+        dto.session_id,
+        dto,
+      );
+
+      updatePromises.push(
+        prismaClient.session.update({
+          where: { id: dto.session_id },
+          data: updateData,
+        }),
+      );
+
+      if (validationInfo) {
+        validationInfo.sessionID = dto.session_id;
+
+        (
+          sessionsValidationInfoByHall.get(validationInfo.hallID) ??
+          sessionsValidationInfoByHall
+            .set(validationInfo.hallID, [])
+            .get(validationInfo.hallID)!
+        ).push(validationInfo);
+      }
+    }
+
+    await this.validateSessionBatch(
+      sessionsValidationInfoByHall,
+      prismaClient,
+      true,
+    );
+    await Promise.all(updatePromises);
+  }
+
   public validateDate(date: string) {
     const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
     const spaceFormat = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
@@ -398,6 +448,7 @@ export class SessionService {
   private async validateSessionBatch(
     sessionsByHall: Map<number, SessionTimeSlotValidationInfo[]>,
     prisma: CustomPrismaClient = prismaClient,
+    isUpdateValidation: boolean = false,
   ) {
     for (const [hallID, sessions] of sessionsByHall.entries()) {
       sessions.sort((a, b) => a.startUTC.getTime() - b.startUTC.getTime());
@@ -426,7 +477,15 @@ export class SessionService {
 
     await Promise.all(
       Array.from(sessionsByHall.values(), (sessions) =>
-        sessions.map((s) => this.validateSessionTimeSlot(s, prisma)),
+        sessions.map((s) =>
+          this.validateSessionTimeSlot(
+            s,
+            prisma,
+            isUpdateValidation && s.sessionID !== undefined
+              ? s.sessionID
+              : undefined,
+          ),
+        ),
       ).flat(),
     );
   }
