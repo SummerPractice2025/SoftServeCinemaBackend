@@ -42,15 +42,26 @@ export class SessionsController {
     examples: {
       validFull: {
         summary: 'All fields present',
-        value: {
-          session_id: 123,
-          date: '2025-07-01T18:00:00',
-          price: 120.0,
-          price_VIP: 200.0,
-          hall_id: 2,
-          session_type_id: 1,
-          is_deleted: false,
-        },
+        value: [
+          {
+            session_id: 123,
+            date: '2025-07-01T18:00:00',
+            price: 120.0,
+            price_VIP: 200.0,
+            hall_id: 2,
+            session_type_id: 1,
+            is_deleted: false,
+          },
+          {
+            session_id: 156,
+            date: '2025-07-05T18:00:00',
+            price: 120.0,
+            price_VIP: 200.0,
+            hall_id: 2,
+            session_type_id: 1,
+            is_deleted: false,
+          },
+        ],
       },
       validNoIsDeleted: {
         summary: 'Without is_deleted field',
