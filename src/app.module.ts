@@ -10,6 +10,7 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CommonModule } from './modules/common/common.module';
 import { BookingModule } from './modules/booking/booking.module';
+import { CryptoModule } from './modules/crypto/crypto.module';
 import { StatsModule } from './modules/stats/stats.module';
 
 @Module({
@@ -25,6 +26,7 @@ import { StatsModule } from './modules/stats/stats.module';
     AuthModule,
     CommonModule,
     BookingModule,
+    CryptoModule,
     StatsModule,
   ],
 })
