@@ -19,6 +19,17 @@ const TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
 
 type CustomPrismaClient = PrismaClient | Prisma.TransactionClient;
 
+type SessionTimeSlotValidationInfo = {
+  hallID: number;
+  startUTC: Date;
+  duration: number;
+};
+
+type GetSessionUpdateDataResult = {
+  updateData: Prisma.SessionUpdateInput;
+  validationInfo?: SessionTimeSlotValidationInfo;
+};
+
 @Injectable()
 export class SessionService {
   constructor(private readonly hallsService: HallsService) {}
@@ -230,211 +241,23 @@ export class SessionService {
     return session;
   }
 
-  async validateSessionsNoOverlap(
-    dtos: AddSessionRequestDTO[],
-    prisma: CustomPrismaClient = prismaClient,
-  ) {
-    if (dtos.length === 0) return;
-
-    const uniqueDates = new Set(
-      dtos.map((dto) => new Date(dto.date).toISOString()),
-    );
-    if (uniqueDates.size !== dtos.length) {
-      throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
-    }
-
-    const movieDurations = new Map<number, number>();
-
-    type SessionInfo = {
-      hallID: number;
-      start: Date;
-      duration: number;
-    };
-    const sessionsByHall = new Map<number, SessionInfo[]>();
-
-    for (const dto of dtos) {
-      this.validateDate(dto.date);
-
-      const sessionStartUTC = fromZonedTime(new Date(dto.date), 'Europe/Kyiv');
-
-      let duration = movieDurations.get(dto.movieID);
-      if (duration === undefined) {
-        duration = await this.getMovieDuration(dto.movieID);
-        movieDurations.set(dto.movieID, duration);
-      }
-
-      if (!sessionsByHall.has(dto.hallID)) {
-        sessionsByHall.set(dto.hallID, []);
-      }
-      sessionsByHall.get(dto.hallID)!.push({
-        hallID: dto.hallID,
-        start: sessionStartUTC,
-        duration,
-      });
-
-      await this.validateSessionTimeSlot(
-        sessionStartUTC,
-        dto.hallID,
-        duration,
-        prisma,
-      );
-    }
-
-    for (const [hallID, sessions] of sessionsByHall.entries()) {
-      sessions.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-      for (let i = 1; i < sessions.length; i++) {
-        const prev = sessions[i - 1];
-        const curr = sessions[i];
-
-        const prevEnd = this.addMinutes(
-          prev.start,
-          prev.duration + BREAK_BUFFER_MINUTES,
-        );
-        if (curr.start < prevEnd) {
-          throw new BadRequestException(
-            await this.getSessionOverlapError(
-              hallID,
-              prev.start,
-              curr.start,
-              prisma,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  async validateSessionTimeSlot(
-    sessionStartUTC: Date,
-    hallID: number,
-    movieDuration: number,
-    prisma: CustomPrismaClient = prismaClient,
-    currentSessionID?: number,
-  ) {
-    const previousSession = await prisma.session.findFirst({
-      where: {
-        hall_id: hallID,
-        is_deleted: false,
-        ...(currentSessionID && { id: { not: currentSessionID } }),
-        date: {
-          lte: sessionStartUTC,
-        },
-      },
-      orderBy: {
-        date: 'desc',
-      },
-      select: {
-        date: true,
-        movie: { select: { duration: true } },
-      },
-    });
-
-    if (previousSession) {
-      const prevSessionEnd = this.addMinutes(
-        previousSession.date,
-        previousSession.movie.duration + BREAK_BUFFER_MINUTES,
-      );
-      if (sessionStartUTC < prevSessionEnd) {
-        throw new BadRequestException(
-          await this.getSessionOverlapError(
-            hallID,
-            sessionStartUTC,
-            previousSession.date,
-            prisma,
-          ),
-        );
-      }
-    }
-
-    const nextSession = await prisma.session.findFirst({
-      where: {
-        hall_id: hallID,
-        is_deleted: false,
-        ...(currentSessionID && { id: { not: currentSessionID } }),
-        date: {
-          gte: sessionStartUTC,
-        },
-      },
-      orderBy: {
-        date: 'asc',
-      },
-      select: {
-        date: true,
-        movie: { select: { duration: true } },
-      },
-    });
-
-    if (nextSession) {
-      const newSessionEnd = this.addMinutes(
-        sessionStartUTC,
-        movieDuration + BREAK_BUFFER_MINUTES,
-      );
-      if (newSessionEnd > nextSession.date) {
-        throw new BadRequestException(
-          await this.getSessionOverlapError(
-            hallID,
-            sessionStartUTC,
-            nextSession.date,
-            prisma,
-          ),
-        );
-      }
-    }
-  }
-
   async updateSession(
     session_id: number,
     dto: UpdateSessionRequestDTO,
   ): Promise<void> {
-    const session = await this.getSessionByID(session_id);
+    const updateDataResult = await this.getSessionUpdateData(session_id, dto);
 
-    const tZ = 'Europe/Kyiv';
-    const updateData: Prisma.SessionUpdateInput = {};
-
-    if (dto.date !== undefined) {
-      this.validateDate(dto.date);
-      updateData.date = fromZonedTime(new Date(dto.date), tZ);
-
+    if (updateDataResult.validationInfo !== undefined) {
       await this.validateSessionTimeSlot(
-        updateData.date,
-        session.hall_id,
-        await this.getMovieDuration(session.movie_id),
+        updateDataResult.validationInfo,
         prismaClient,
-        session.id,
+        session_id,
       );
-    }
-    if (dto.price !== undefined) {
-      updateData.price = dto.price;
-    }
-    if (dto.price_VIP !== undefined) {
-      updateData.price_VIP = dto.price_VIP;
-    }
-    if (dto.hall_id !== undefined) {
-      const hallExists = await this.hallsService.existsById(dto.hall_id);
-      if (!hallExists) {
-        throw new BadRequestException(`Зал із id ${dto.hall_id} не знайдено!`);
-      }
-      updateData.hall = { connect: { id: dto.hall_id } };
-    }
-    if (dto.session_type_id !== undefined) {
-      const sessionTypeExists = await this.existsSessionTypeById(
-        dto.session_type_id,
-      );
-      if (!sessionTypeExists) {
-        throw new BadRequestException(
-          `Тип сеансу із id ${dto.session_type_id} не знайдено!`,
-        );
-      }
-      updateData.sessionType = { connect: { id: dto.session_type_id } };
-    }
-    if (dto.is_deleted !== undefined) {
-      updateData.is_deleted = dto.is_deleted;
     }
 
     await prismaClient.session.update({
       where: { id: session_id },
-      data: updateData,
+      data: updateDataResult.updateData,
     });
   }
 
@@ -453,6 +276,159 @@ export class SessionService {
     if (isNaN(parsed.getTime())) {
       throw new BadRequestException('Некотректний дата або час.');
     }
+  }
+
+  async validateSessionsNoOverlap(
+    dtos: AddSessionRequestDTO[],
+    prisma: CustomPrismaClient = prismaClient,
+  ) {
+    if (dtos.length === 0) return;
+
+    const uniqueDates = new Set(
+      dtos.map((dto) => new Date(dto.date).toISOString()),
+    );
+    if (uniqueDates.size !== dtos.length) {
+      throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
+    }
+
+    const movieDurations = new Map<number, number>();
+
+    const sessionsByHall = new Map<number, SessionTimeSlotValidationInfo[]>();
+
+    for (const dto of dtos) {
+      this.validateDate(dto.date);
+
+      const sessionStartUTC = fromZonedTime(new Date(dto.date), TIME_ZONE);
+
+      let duration = movieDurations.get(dto.movieID);
+      if (duration === undefined) {
+        duration = await this.getMovieDuration(dto.movieID);
+        movieDurations.set(dto.movieID, duration);
+      }
+
+      if (!sessionsByHall.has(dto.hallID)) {
+        sessionsByHall.set(dto.hallID, []);
+      }
+      sessionsByHall.get(dto.hallID)!.push({
+        hallID: dto.hallID,
+        startUTC: sessionStartUTC,
+        duration,
+      });
+    }
+
+    await this.validateSessionBatch(sessionsByHall, prisma);
+  }
+
+  async validateSessionTimeSlot(
+    info: SessionTimeSlotValidationInfo,
+    prisma: CustomPrismaClient = prismaClient,
+    currentSessionID?: number,
+  ) {
+    const previousSession = await prisma.session.findFirst({
+      where: {
+        hall_id: info.hallID,
+        is_deleted: false,
+        ...(currentSessionID && { id: { not: currentSessionID } }),
+        date: {
+          lte: info.startUTC,
+        },
+      },
+      orderBy: {
+        date: 'desc',
+      },
+      select: {
+        date: true,
+        movie: { select: { duration: true } },
+      },
+    });
+
+    if (previousSession) {
+      const prevSessionEnd = this.addMinutes(
+        previousSession.date,
+        previousSession.movie.duration + BREAK_BUFFER_MINUTES,
+      );
+      if (info.startUTC < prevSessionEnd) {
+        throw new BadRequestException(
+          await this.getSessionOverlapError(
+            info.hallID,
+            info.startUTC,
+            previousSession.date,
+            prisma,
+          ),
+        );
+      }
+    }
+
+    const nextSession = await prisma.session.findFirst({
+      where: {
+        hall_id: info.hallID,
+        is_deleted: false,
+        ...(currentSessionID && { id: { not: currentSessionID } }),
+        date: {
+          gte: info.startUTC,
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      select: {
+        date: true,
+        movie: { select: { duration: true } },
+      },
+    });
+
+    if (nextSession) {
+      const newSessionEnd = this.addMinutes(
+        info.startUTC,
+        info.duration + BREAK_BUFFER_MINUTES,
+      );
+      if (newSessionEnd > nextSession.date) {
+        throw new BadRequestException(
+          await this.getSessionOverlapError(
+            info.hallID,
+            info.startUTC,
+            nextSession.date,
+            prisma,
+          ),
+        );
+      }
+    }
+  }
+
+  private async validateSessionBatch(
+    sessionsByHall: Map<number, SessionTimeSlotValidationInfo[]>,
+    prisma: CustomPrismaClient = prismaClient,
+  ) {
+    for (const [hallID, sessions] of sessionsByHall.entries()) {
+      sessions.sort((a, b) => a.startUTC.getTime() - b.startUTC.getTime());
+
+      for (let i = 1; i < sessions.length; i++) {
+        const prev = sessions[i - 1];
+        const curr = sessions[i];
+
+        const prevEnd = this.addMinutes(
+          prev.startUTC,
+          prev.duration + BREAK_BUFFER_MINUTES,
+        );
+
+        if (curr.startUTC < prevEnd) {
+          throw new BadRequestException(
+            await this.getSessionOverlapError(
+              hallID,
+              prev.startUTC,
+              curr.startUTC,
+              prisma,
+            ),
+          );
+        }
+      }
+    }
+
+    await Promise.all(
+      Array.from(sessionsByHall.values(), (sessions) =>
+        sessions.map((s) => this.validateSessionTimeSlot(s, prisma)),
+      ).flat(),
+    );
   }
 
   private addMinutes(date: Date, minutes: number): Date {
@@ -508,5 +484,55 @@ export class SessionService {
     }
 
     return movie.duration;
+  }
+
+  private async getSessionUpdateData(
+    session_id: number,
+    dto: UpdateSessionRequestDTO,
+  ): Promise<GetSessionUpdateDataResult> {
+    const session = await this.getSessionByID(session_id);
+    let validationInfo: SessionTimeSlotValidationInfo | undefined = undefined;
+
+    const updateData: Prisma.SessionUpdateInput = {};
+
+    if (dto.date !== undefined) {
+      this.validateDate(dto.date);
+      updateData.date = fromZonedTime(new Date(dto.date), TIME_ZONE);
+
+      validationInfo = {
+        startUTC: updateData.date,
+        hallID: session.hall_id,
+        duration: await this.getMovieDuration(session.movie_id),
+      };
+    }
+    if (dto.price !== undefined) {
+      updateData.price = dto.price;
+    }
+    if (dto.price_VIP !== undefined) {
+      updateData.price_VIP = dto.price_VIP;
+    }
+    if (dto.hall_id !== undefined) {
+      const hallExists = await this.hallsService.existsById(dto.hall_id);
+      if (!hallExists) {
+        throw new BadRequestException(`Зал із id ${dto.hall_id} не знайдено!`);
+      }
+      updateData.hall = { connect: { id: dto.hall_id } };
+    }
+    if (dto.session_type_id !== undefined) {
+      const sessionTypeExists = await this.existsSessionTypeById(
+        dto.session_type_id,
+      );
+      if (!sessionTypeExists) {
+        throw new BadRequestException(
+          `Тип сеансу із id ${dto.session_type_id} не знайдено!`,
+        );
+      }
+      updateData.sessionType = { connect: { id: dto.session_type_id } };
+    }
+    if (dto.is_deleted !== undefined) {
+      updateData.is_deleted = dto.is_deleted;
+    }
+
+    return { updateData, validationInfo };
   }
 }
