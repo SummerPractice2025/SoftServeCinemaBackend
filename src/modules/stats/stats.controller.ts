@@ -266,7 +266,7 @@ export class StatsController {
   @ApiOperation({
     summary: 'Get cinema hall occupancy rates',
     description:
-      'Returns the occupancy rate (percentage of seats sold) for each cinema hall over the last N days. Defaults to a week (today - 6 days). Only for administrators.',
+      'Returns the occupancy rate (percentage of seats sold) for each cinema hall over the last N days sorted DESC. Defaults to a week (today - 6 days). Only for administrators.',
   })
   @ApiOkResponse({
     description: 'Hall occupancy rates retrieved successfully',
