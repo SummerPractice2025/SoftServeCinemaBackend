@@ -12,6 +12,7 @@ import { CommonModule } from './modules/common/common.module';
 import { BookingModule } from './modules/booking/booking.module';
 import { CryptoModule } from './modules/crypto/crypto.module';
 import { StatsModule } from './modules/stats/stats.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   controllers: [AppController],
@@ -28,6 +29,7 @@ import { StatsModule } from './modules/stats/stats.module';
     BookingModule,
     CryptoModule,
     StatsModule,
+    EmailModule,
   ],
 })
 export class AppModule {}
