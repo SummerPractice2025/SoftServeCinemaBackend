@@ -268,7 +268,7 @@ export class SessionService {
   }
 
   async updateSessions(dtos: UpdateSessionsRequestDTO[]) {
-    const updatePromises: Promise<any>[] = [];
+    const updateOperations: (() => Promise<any>)[] = [];
     const sessionsValidationInfoByHall = new Map<
       number,
       SessionTimeSlotValidationInfo[]
@@ -284,7 +284,7 @@ export class SessionService {
         dto,
       );
 
-      updatePromises.push(
+      updateOperations.push(() =>
         prismaClient.session.update({
           where: { id: dto.session_id },
           data: updateData,
@@ -308,7 +308,7 @@ export class SessionService {
       prismaClient,
       true,
     );
-    await Promise.all(updatePromises);
+    await Promise.all(updateOperations.map((fn) => fn()));
   }
 
   public validateDate(date: string) {
@@ -324,7 +324,7 @@ export class SessionService {
     const parsed = new Date(date.replace(' ', 'T'));
 
     if (isNaN(parsed.getTime())) {
-      throw new BadRequestException('Некотректний дата або час.');
+      throw new BadRequestException('Некоректний дата або час.');
     }
   }
 

@@ -9,6 +9,6 @@ export class UpdateSessionsRequestDTO extends UpdateSessionRequestDTO {
     example: 123,
   })
   @Type(() => Number)
-  @IsInt({ message: 'Sessoin ID must be a valid number' })
+  @IsInt({ message: 'Session ID must be a valid number' })
   session_id: number;
 }
