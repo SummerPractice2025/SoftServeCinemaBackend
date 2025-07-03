@@ -14,6 +14,7 @@ import { User } from 'generated/prisma';
 import { extractRefreshTokenFromCookies } from 'src/cookies/cookies';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './strategies/JwtPayload';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly authTokenService: AuthTokenService,
     private readonly cryptoService: CryptoService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   async signUp(dto: SignUpRequestDTO, res: Response) {
@@ -33,6 +35,8 @@ export class AuthService {
       ...dto,
       password: passwordHash,
     });
+
+    await this.sendVerificationLetter(dto.email);
 
     return this.authTokenService.generateTokenPair(newUser, res);
   }
@@ -79,6 +83,45 @@ export class AuthService {
       res,
       refreshToken,
       refreshTokenExpiresAt,
+    );
+  }
+
+  async verifyEmail(token: string) {
+    const successURL = `${process.env.FRONTEND_URL}`;
+    const failureURL = `${process.env.FRONTEND_URL}`;
+
+    type JwtPayload = {
+      email: string;
+    };
+
+    try {
+      const payload: JwtPayload = this.jwtService.verify(token, {
+        secret: process.env.EMAIL_VERIFY_TOKEN_SECRET,
+      });
+
+      if (!(await this.userService.verifyUser(payload.email))) {
+        return failureURL;
+      }
+
+      return successURL;
+    } catch {
+      return failureURL;
+    }
+  }
+
+  private async sendVerificationLetter(userEmail: string) {
+    const token = this.jwtService.sign(
+      { email: userEmail },
+      { secret: process.env.EMAIL_VERIFY_TOKEN_SECRET, expiresIn: '1h' },
+    );
+
+    const verificationLink = `${process.env.SERVER_URL}/auth/verify-email?token=${token}`;
+    const html = `<p>Перейдіть за посиланням щоб підтвердити свій email: <p><a href="${verificationLink}">${verificationLink}</a>`;
+
+    await this.emailService.sendEmail(
+      userEmail,
+      'Підтвердіть свій email!',
+      html,
     );
   }
 }
