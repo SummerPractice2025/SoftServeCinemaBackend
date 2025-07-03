@@ -14,14 +14,6 @@ import {
   TopFilmsRevenueResp,
 } from './dto/get-stats-top-money.dto';
 
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-const HOURS_PER_DAY = 24;
-
-const MS_PER_DAY =
-  MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
-
 @Injectable()
 export class StatsService {
   calcDateThreshold(days: number, now: Date): Date {
@@ -32,15 +24,9 @@ export class StatsService {
     return dateThreshold;
   }
 
-  async getTopFilmsByTickets(days = 7, count = 3): Promise<TopFilmsRespDTO> {
-    const DEFAULT_DAYS = 7;
-    const DEFAULT_COUNT = 3;
-
-    const daysToUse = days ?? DEFAULT_DAYS;
-    const countToUse = count ?? DEFAULT_COUNT;
-
+  async getTopFilmsByTickets(days = 7, topCount = 3): Promise<TopFilmsRespDTO> {
     const now = new Date();
-    const dateThreshold = this.calcDateThreshold(daysToUse, now);
+    const dateThreshold = this.calcDateThreshold(days, now);
 
     const rawResult = await prismaClient.$queryRaw<
       { film_name: string; sold_tickets: bigint }[]
@@ -64,7 +50,7 @@ export class StatsService {
         ORDER BY
           sold_tickets DESC,
           m.created_at DESC
-        LIMIT ${countToUse};
+        LIMIT ${topCount};
       `,
     );
 
@@ -114,8 +100,6 @@ export class StatsService {
     const now = new Date();
     const dateThreshold = this.calcDateThreshold(days, now);
 
-    console.log(dateThreshold);
-
     const result: HallOccupancyItemDTO[] = await prismaClient.$queryRaw(
       Prisma.sql`
         SELECT
@@ -157,15 +141,14 @@ export class StatsService {
     finalResponse.halls = formattedResult;
 
     return finalResponse;
+  }
 
   private async getStatsTopMoneyDays(
     days: number,
-    count: number,
+    topCount: number,
   ): Promise<TopFilmsTemplate[]> {
     const now = new Date();
-    const fromDate = new Date(now);
-    fromDate.setDate(fromDate.getDate() - (days - 1));
-    fromDate.setHours(0, 0, 0, 0);
+    const fromDate = this.calcDateThreshold(days, now);
 
     const query = Prisma.sql`
       SELECT 
@@ -187,7 +170,7 @@ export class StatsService {
         AND m.created_at <= ${now}
       GROUP BY m.name, m.created_at
       ORDER BY money DESC, m.created_at DESC
-      LIMIT ${count};
+      LIMIT ${topCount};
     `;
 
     const rawResults: Array<{
@@ -206,19 +189,15 @@ export class StatsService {
     return topFilms;
   }
 
-  async getTopFilmsRevenueResp(count?: number): Promise<TopFilmsRevenueResp> {
-    const DEFAULT_TOP_COUNT = 3;
-
+  async getTopFilmsRevenueResp(topCount = 3): Promise<TopFilmsRevenueResp> {
     const DAY = 1;
     const WEEK = 7;
     const MONTH = 30;
 
-    const limit = count ?? DEFAULT_TOP_COUNT;
-
     const dto = new TopFilmsRevenueResp();
-    dto.day = await this.getStatsTopMoneyDays(DAY, limit);
-    dto.week = await this.getStatsTopMoneyDays(WEEK, limit);
-    dto.month = await this.getStatsTopMoneyDays(MONTH, limit);
+    dto.day = await this.getStatsTopMoneyDays(DAY, topCount);
+    dto.week = await this.getStatsTopMoneyDays(WEEK, topCount);
+    dto.month = await this.getStatsTopMoneyDays(MONTH, topCount);
 
     return dto;
   }
