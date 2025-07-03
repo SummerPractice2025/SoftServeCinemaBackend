@@ -224,7 +224,7 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new NotFoundException(`Сеанс з ID ${sessionID} не знайдено.`);
+      throw new NotFoundException(`Сеанс із ID ${sessionID} не знайдено.`);
     }
 
     return session;
@@ -259,14 +259,7 @@ export class SessionService {
 
       let duration = movieDurations.get(dto.movieID);
       if (duration === undefined) {
-        const movie = await prisma.movie.findUnique({
-          where: { id: dto.movieID },
-          select: { duration: true },
-        });
-        if (!movie) {
-          throw new NotFoundException(`Фільм з ID ${dto.movieID} не знайдено`);
-        }
-        duration = movie.duration;
+        duration = await this.getMovieDuration(dto.movieID);
         movieDurations.set(dto.movieID, duration);
       }
 
@@ -279,73 +272,12 @@ export class SessionService {
         duration,
       });
 
-      const previousSession = await prisma.session.findFirst({
-        where: {
-          hall_id: dto.hallID,
-          is_deleted: false,
-          date: {
-            lte: sessionStartUTC,
-          },
-        },
-        orderBy: {
-          date: 'desc',
-        },
-        select: {
-          date: true,
-          movie: { select: { duration: true } },
-        },
-      });
-
-      if (previousSession) {
-        const prevSessionEnd = this.addMinutes(
-          previousSession.date,
-          previousSession.movie.duration + BREAK_BUFFER_MINUTES,
-        );
-        if (sessionStartUTC < prevSessionEnd) {
-          throw new BadRequestException(
-            await this.getSessionOverlapError(
-              dto.hallID,
-              sessionStartUTC,
-              previousSession.date,
-              prisma,
-            ),
-          );
-        }
-      }
-
-      const nextSession = await prisma.session.findFirst({
-        where: {
-          hall_id: dto.hallID,
-          is_deleted: false,
-          date: {
-            gte: sessionStartUTC,
-          },
-        },
-        orderBy: {
-          date: 'asc',
-        },
-        select: {
-          date: true,
-          movie: { select: { duration: true } },
-        },
-      });
-
-      if (nextSession) {
-        const newSessionEnd = this.addMinutes(
-          sessionStartUTC,
-          duration + BREAK_BUFFER_MINUTES,
-        );
-        if (newSessionEnd > nextSession.date) {
-          throw new BadRequestException(
-            await this.getSessionOverlapError(
-              dto.hallID,
-              sessionStartUTC,
-              nextSession.date,
-              prisma,
-            ),
-          );
-        }
-      }
+      await this.validateSessionTimeSlot(
+        sessionStartUTC,
+        dto.hallID,
+        duration,
+        prisma,
+      );
     }
 
     for (const [hallID, sessions] of sessionsByHall.entries()) {
@@ -373,15 +305,89 @@ export class SessionService {
     }
   }
 
+  async validateSessionTimeSlot(
+    sessionStartUTC: Date,
+    hallID: number,
+    movieDuration: number,
+    prisma: CustomPrismaClient = prismaClient,
+    currentSessionID?: number,
+  ) {
+    const previousSession = await prisma.session.findFirst({
+      where: {
+        hall_id: hallID,
+        is_deleted: false,
+        ...(currentSessionID && { id: { not: currentSessionID } }),
+        date: {
+          lte: sessionStartUTC,
+        },
+      },
+      orderBy: {
+        date: 'desc',
+      },
+      select: {
+        date: true,
+        movie: { select: { duration: true } },
+      },
+    });
+
+    if (previousSession) {
+      const prevSessionEnd = this.addMinutes(
+        previousSession.date,
+        previousSession.movie.duration + BREAK_BUFFER_MINUTES,
+      );
+      if (sessionStartUTC < prevSessionEnd) {
+        throw new BadRequestException(
+          await this.getSessionOverlapError(
+            hallID,
+            sessionStartUTC,
+            previousSession.date,
+            prisma,
+          ),
+        );
+      }
+    }
+
+    const nextSession = await prisma.session.findFirst({
+      where: {
+        hall_id: hallID,
+        is_deleted: false,
+        ...(currentSessionID && { id: { not: currentSessionID } }),
+        date: {
+          gte: sessionStartUTC,
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      select: {
+        date: true,
+        movie: { select: { duration: true } },
+      },
+    });
+
+    if (nextSession) {
+      const newSessionEnd = this.addMinutes(
+        sessionStartUTC,
+        movieDuration + BREAK_BUFFER_MINUTES,
+      );
+      if (newSessionEnd > nextSession.date) {
+        throw new BadRequestException(
+          await this.getSessionOverlapError(
+            hallID,
+            sessionStartUTC,
+            nextSession.date,
+            prisma,
+          ),
+        );
+      }
+    }
+  }
+
   async updateSession(
     session_id: number,
     dto: UpdateSessionRequestDTO,
   ): Promise<void> {
-    const exists = await this.existsById(session_id);
-
-    if (!exists) {
-      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
-    }
+    const session = await this.getSessionByID(session_id);
 
     const tZ = 'Europe/Kyiv';
     const updateData: Prisma.SessionUpdateInput = {};
@@ -389,6 +395,14 @@ export class SessionService {
     if (dto.date !== undefined) {
       this.validateDate(dto.date);
       updateData.date = fromZonedTime(new Date(dto.date), tZ);
+
+      await this.validateSessionTimeSlot(
+        updateData.date,
+        session.hall_id,
+        await this.getMovieDuration(session.movie_id),
+        prismaClient,
+        session.id,
+      );
     }
     if (dto.price !== undefined) {
       updateData.price = dto.price;
@@ -479,5 +493,20 @@ export class SessionService {
         is_deleted: true,
       },
     });
+  }
+
+  private async getMovieDuration(
+    movieID: number,
+    prisma: CustomPrismaClient = prismaClient,
+  ) {
+    const movie = await prisma.movie.findUnique({
+      where: { id: movieID },
+      select: { duration: true },
+    });
+    if (!movie) {
+      throw new NotFoundException(`Фільм з ID ${movieID} не знайдено`);
+    }
+
+    return movie.duration;
   }
 }
