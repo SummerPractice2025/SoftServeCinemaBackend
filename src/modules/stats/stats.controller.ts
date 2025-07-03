@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import { User } from 'generated/prisma';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
+import { GetHallOccupancyRespDTO } from './dto/get-halls-occupancy.dto';
 
 @ApiTags('stats')
 @Controller('stats')
@@ -52,12 +53,15 @@ export class StatsController {
   @ApiOkResponse({
     description: 'Top films by tickets successfully retrieved',
     type: TopFilmsRespDTO,
-    schema: {
-      example: {
-        films: [
-          { film_name: 'The Matrix', sold_tickets: 120 },
-          { film_name: 'Inception', sold_tickets: 95 },
-        ],
+    examples: {
+      'application/json': {
+        summary: 'Successful response example',
+        value: {
+          films: [
+            { film_name: 'The Matrix', sold_tickets: 120 },
+            { film_name: 'Inception', sold_tickets: 95 },
+          ],
+        },
       },
     },
   })
@@ -245,6 +249,106 @@ export class StatsController {
         throw error;
       }
       throw new InternalServerErrorException('Виникла неочікувана помилка.');
+    }
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Get('occupancy')
+  @HttpCode(HttpStatus.OK)
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description:
+      'Number of days to look back for hall occupancy (default: 7 days, meaning today - 6 days).',
+    type: Number,
+    example: 7,
+  })
+  @ApiOperation({
+    summary: 'Get cinema hall occupancy rates',
+    description:
+      'Returns the occupancy rate (percentage of seats sold) for each cinema hall over the last N days. Defaults to a week (today - 6 days). Only for administrators.',
+  })
+  @ApiOkResponse({
+    description: 'Hall occupancy rates retrieved successfully',
+    type: GetHallOccupancyRespDTO,
+    isArray: true,
+    examples: {
+      'application/json': {
+        summary: 'Successful response example',
+        value: {
+          halls: [
+            { hall_id: 1, hall_name: 'hall 1', occupancy: 15 },
+            { hall_id: 2, hall_name: 'hall 2', occupancy: 1.5 },
+            { hall_id: 10, hall_name: 'hall 4', occupancy: 0 },
+          ],
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid query parameters',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Query param error!',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - missing or invalid access token',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden - user lacks admin rights',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Доступ заборонено. Тільки для адміністраторів',
+        error: 'Forbidden',
+      },
+    },
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Internal server error',
+    schema: {
+      example: {
+        statusCode: 500,
+        message: 'Сталася неочікувана помилка.',
+        error: 'Internal Server Error',
+      },
+    },
+  })
+  async getHallOccupancy(
+    @Request() req: { user: User },
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ): Promise<GetHallOccupancyRespDTO> {
+    try {
+      if (!req.user || !req.user.is_admin) {
+        throw new ForbiddenException(
+          'Доступ заборонено. Тільки для адміністраторів',
+        );
+      }
+
+      if (days !== undefined && days < 1) {
+        throw new BadRequestException('Query param error!');
+      }
+      return await this.statsService.getHallOccupancy(days);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Сталася неочікувана помилка.');
     }
   }
 }
