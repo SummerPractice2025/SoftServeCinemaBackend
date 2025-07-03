@@ -38,4 +38,13 @@ export class UserService {
 
     return await prismaClient.user.create({ data: dto });
   }
+
+  async isExist(userId: number): Promise<boolean> {
+    const user = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    return user !== null;
+  }
 }
