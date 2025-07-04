@@ -7,11 +7,13 @@ import { AccessTokenStrategy } from './strategies/AccessTokenStrategy';
 import { CryptoModule } from '../crypto/crypto.module';
 import { AuthTokenService } from './auth-token.service';
 import { RefreshTokenStrategy } from './strategies/RefreshTokenStrategy';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     UserModule,
     CryptoModule,
+    EmailModule,
     JwtModule.register({
       signOptions: { expiresIn: '15m' },
     }),
