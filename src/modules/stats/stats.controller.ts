@@ -5,7 +5,6 @@ import {
   ParseIntPipe,
   Query,
   UnauthorizedException,
-  Request,
   ForbiddenException,
   InternalServerErrorException,
   UseGuards,
@@ -23,20 +22,23 @@ import {
   ApiUnauthorizedResponse,
   ApiOperation,
   ApiResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
-import { User } from 'generated/prisma';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { GetHallOccupancyRespDTO } from './dto/get-halls-occupancy.dto';
 import { TopFilmsRevenueResp } from './dto/get-stats-top-money.dto';
 import { TopFilmsRespDTO } from './dto/get-stats-by-tickets.dto';
+import { Role, Roles, RolesGuard } from 'src/common/roles';
 
 @ApiTags('stats')
 @Controller('stats')
 export class StatsController {
   constructor(private readonly statsService: StatsService) {}
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Get('top/tickets')
+  @ApiBearerAuth()
   @ApiQuery({
     name: 'days',
     required: false,
@@ -129,17 +131,10 @@ export class StatsController {
     },
   })
   async getTopTickets(
-    @Request() req: { user: User },
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
     @Query('count', new ParseIntPipe({ optional: true })) count?: number,
   ): Promise<TopFilmsRespDTO> {
     try {
-      if (!req.user.is_admin) {
-        throw new ForbiddenException(
-          `Доступ заборонено. Тільки для адміністраторів`,
-        );
-      }
-
       if (
         (days !== undefined && days < 1) ||
         (count !== undefined && count < 1)
@@ -160,8 +155,10 @@ export class StatsController {
     }
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Get('money')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiQuery({
     name: 'days',
@@ -226,16 +223,9 @@ export class StatsController {
     },
   })
   async getStatsMoney(
-    @Request() req: { user: User },
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<{ money: number }> {
     try {
-      if (!req.user.is_admin) {
-        throw new ForbiddenException(
-          'Доступ заборонено. Тільки для адміністраторів',
-        );
-      }
-
       if (days !== undefined && days < 1) {
         throw new BadRequestException('Query param error!');
       }
@@ -253,8 +243,10 @@ export class StatsController {
     }
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Get('/top/money')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiQuery({
     name: 'count',
@@ -334,16 +326,9 @@ export class StatsController {
     },
   })
   async getStatsTopMoney(
-    @Request() req: { user: User },
     @Query('count', new ParseIntPipe({ optional: true })) count?: number,
   ): Promise<TopFilmsRevenueResp> {
     try {
-      if (!req.user.is_admin) {
-        throw new ForbiddenException(
-          'Доступ заборонено. Тільки для адміністраторів',
-        );
-      }
-
       if (count !== undefined && count < 1) {
         throw new BadRequestException('Query param error!');
       }
@@ -361,8 +346,10 @@ export class StatsController {
     }
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Get('occupancy')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiQuery({
     name: 'days',
@@ -435,16 +422,9 @@ export class StatsController {
     },
   })
   async getHallOccupancy(
-    @Request() req: { user: User },
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<GetHallOccupancyRespDTO> {
     try {
-      if (!req.user || !req.user.is_admin) {
-        throw new ForbiddenException(
-          'Доступ заборонено. Тільки для адміністраторів',
-        );
-      }
-
       if (days !== undefined && days < 1) {
         throw new BadRequestException('Query param error!');
       }

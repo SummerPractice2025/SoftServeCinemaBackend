@@ -2,7 +2,6 @@ import {
   Controller,
   Put,
   Body,
-  Request,
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
@@ -10,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiOperation,
+  ApiBearerAuth,
   ApiBody,
   ApiOkResponse,
   ApiForbiddenResponse,
@@ -20,9 +20,7 @@ import {
 import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
-import { RolesGuard } from 'src/guards/RolesGuard';
-import { Roles } from 'src/decorators/roles.decorator';
-import { Role } from 'src/common/enums';
+import { Role, Roles, RolesGuard } from 'src/common/roles';
 
 @Controller('sessions')
 export class SessionsController {
@@ -31,6 +29,7 @@ export class SessionsController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.Admin)
   @Put()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update an existing session',
     description:
