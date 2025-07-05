@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   UseGuards,
-  Request,
   Body,
   ForbiddenException,
   BadRequestException,
@@ -28,16 +27,17 @@ import {
   ApiQuery,
   ApiParam,
   ApiNotFoundResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { GetSessionTypesResponseDTO } from './dto/get-session-types.dto';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { AddSessionRequestDTO } from './dto/add-session.dto';
-import { User } from 'generated/prisma';
 import { GetSessionByIdResponseDTO } from './dto/get-session-by-id.dto';
 import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 import { CommonService } from '../common/common.service';
 import { ValidationPipe } from '@nestjs/common';
+import { Role, Roles, RolesGuard } from 'src/common/roles';
 
 @ApiTags('session')
 @Controller('session')
@@ -60,8 +60,10 @@ export class SessionController {
     return this.sessionService.getSessionTypes();
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Post()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Add sessions to a movie' })
   @ApiBody({
     type: AddSessionRequestDTO,
@@ -132,16 +134,7 @@ export class SessionController {
   @ApiInternalServerErrorResponse({
     description: 'Unexpected server error',
   })
-  async addSession(
-    @Body() addSessionDTOs: AddSessionRequestDTO[],
-    @Request() req: { user: User },
-  ) {
-    if (!req.user.is_admin) {
-      throw new ForbiddenException(
-        `Доступ заборонено. Тільки для адміністраторів`,
-      );
-    }
-
+  async addSession(@Body() addSessionDTOs: AddSessionRequestDTO[]) {
     try {
       await this.sessionService.addSessions(addSessionDTOs);
       return `Успішно додано ${addSessionDTOs.length} сесій`;
@@ -268,8 +261,10 @@ export class SessionController {
     return sessionInfo;
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Put(':session_id')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update an existing session',
     description:
@@ -494,19 +489,12 @@ export class SessionController {
   async updateSession(
     @Param('session_id') session_id: string,
     @Body() dto: UpdateSessionRequestDTO,
-    @Request() req: { user: User },
   ) {
     try {
       if (!this.commonService.isValidId(session_id)) {
         throw new BadRequestException('Некоректний id сеансу!');
       }
       const sessionId = Number(session_id);
-
-      if (!req.user.is_admin) {
-        throw new ForbiddenException(
-          'Доступ заборонено. Тільки для адміністраторів.',
-        );
-      }
 
       if (!(await this.sessionService.existsById(sessionId))) {
         throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
@@ -530,8 +518,10 @@ export class SessionController {
     }
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Delete(':session_id')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Soft delete a session by its ID (admin only)',
     description:
@@ -592,17 +582,8 @@ export class SessionController {
       },
     },
   })
-  async deleteSession(
-    @Param('session_id') session_id: string,
-    @Request() req: { user: User },
-  ) {
+  async deleteSession(@Param('session_id') session_id: string) {
     try {
-      if (!req.user.is_admin) {
-        throw new ForbiddenException(
-          'Доступ заборонено. Тільки для адміністраторів.',
-        );
-      }
-
       if (!this.commonService.isValidId(session_id)) {
         throw new BadRequestException('Некоректний id сеансу!');
       }

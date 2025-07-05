@@ -12,7 +12,6 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Request,
-  ForbiddenException,
   NotFoundException,
   UsePipes,
   ValidationPipe,
@@ -30,6 +29,7 @@ import {
   ApiForbiddenResponse,
   ApiCreatedResponse,
   ApiInternalServerErrorResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { MovieService } from './movie.service';
 import {
@@ -41,6 +41,7 @@ import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { UpdateMovieRespDto } from './dto/update-movie-by-id.dto';
 import { User } from 'generated/prisma';
 import { AddMovieRequestDTO } from './dto/add-movie.dto';
+import { Role, Roles, RolesGuard } from 'src/common/roles';
 
 @ApiTags('movie')
 @Controller('movie')
@@ -106,9 +107,11 @@ export class MovieController {
     return this.movieService.getMovie(Number(movieID));
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Put(':movie_id')
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
   @ApiOperation({ description: 'Update movie info by ID (admin only)' })
   @ApiParam({
     name: 'movie_id',
@@ -184,12 +187,6 @@ export class MovieController {
     @Request() req: { user: User },
     @Param('movie_id') id: string,
   ) {
-    if (!req.user.is_admin) {
-      throw new ForbiddenException(
-        `Доступ заборонено. Тільки для адміністраторів`,
-      );
-    }
-
     try {
       await this.movieService.updateMovieById(Number(id), dto);
       return {
@@ -209,9 +206,11 @@ export class MovieController {
     }
   }
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Add a new movie',
@@ -469,16 +468,7 @@ export class MovieController {
       },
     },
   })
-  async createMovie(
-    @Body() dto: AddMovieRequestDTO,
-    @Request() req: { user: User },
-  ) {
-    if (!req.user.is_admin) {
-      throw new ForbiddenException(
-        `Доступ заборонено. Тільки для адміністраторів`,
-      );
-    }
-
+  async createMovie(@Body() dto: AddMovieRequestDTO) {
     try {
       const result = await this.movieService.createMovie(dto);
       return {

@@ -13,6 +13,7 @@ import { UserService } from './user.service';
 import { BookingService } from '../booking/booking.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import {
+  ApiBearerAuth,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
@@ -38,6 +39,7 @@ export class UserController {
 
   @Get(':id')
   @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Retrieve user credentials and upcoming bookings',
     description:

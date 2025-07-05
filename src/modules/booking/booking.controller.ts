@@ -14,6 +14,7 @@ import {
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
   ApiTags,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
@@ -27,6 +28,7 @@ export class BookingController {
 
   @UseGuards(AccessTokenGuard)
   @Post()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Book seats for a session' })
   @ApiBody({
     type: AddBookingRequestDTO,
