@@ -352,7 +352,7 @@ export class SessionService {
 
       let duration = movieDurations.get(dto.movieID);
       if (duration === undefined) {
-        duration = await this.getMovieDuration(dto.movieID);
+        duration = await this.getMovieDuration(dto.movieID, prisma);
         movieDurations.set(dto.movieID, duration);
       }
 
