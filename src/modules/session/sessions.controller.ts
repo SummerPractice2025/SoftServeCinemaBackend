@@ -3,7 +3,6 @@ import {
   Put,
   Body,
   Request,
-  ForbiddenException,
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
@@ -19,15 +18,18 @@ import {
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
 import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
-import { User } from 'generated/prisma';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
+import { RolesGuard } from 'src/guards/RolesGuard';
+import { Roles } from 'src/decorators/roles.decorator';
+import { Role } from 'src/common/enums';
 
 @Controller('sessions')
 export class SessionsController {
   constructor(private readonly sessionService: SessionService) {}
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.Admin)
   @Put()
   @ApiOperation({
     summary: 'Update an existing session',
@@ -302,16 +304,7 @@ export class SessionsController {
       },
     },
   })
-  async updateSessions(
-    @Body() dtos: UpdateSessionsRequestDTO[],
-    @Request() req: { user: User },
-  ) {
-    if (!req.user.is_admin) {
-      throw new ForbiddenException(
-        'Доступ заборонено. Тільки для адміністраторів.',
-      );
-    }
-
+  async updateSessions(@Body() dtos: UpdateSessionsRequestDTO[]) {
     try {
       await this.sessionService.updateSessions(dtos);
 
