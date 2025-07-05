@@ -27,9 +27,7 @@ export class AuthService {
   ) {}
 
   async signUp(dto: SignUpRequestDTO, res: Response) {
-    const passwordHash = this.cryptoService.generateSHA256HashBase64(
-      dto.password,
-    );
+    const passwordHash = await this.cryptoService.hashPassword(dto.password);
 
     const newUser = await this.userService.createUser({
       ...dto,
@@ -46,7 +44,7 @@ export class AuthService {
 
     if (
       !user ||
-      this.cryptoService.generateSHA256HashBase64(dto.password) != user.password
+      !(await this.cryptoService.verifyPassword(dto.password, user.password))
     ) {
       throw new ForbiddenException(`Неправильний пароль або email.`);
     }
