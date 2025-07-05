@@ -90,7 +90,9 @@ export class MovieService {
       include: {
         genres: { select: { genre: true } },
         sessions: {
-          where: { date: { gte: nowUtc } },
+          where: {
+            AND: [{ date: { gte: nowUtc } }, { is_deleted: false }],
+          },
           orderBy: { date: 'asc' },
           take: 1,
           include: {
