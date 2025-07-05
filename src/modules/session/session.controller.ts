@@ -4,9 +4,7 @@ import {
   Post,
   UseGuards,
   Body,
-  ForbiddenException,
   BadRequestException,
-  InternalServerErrorException,
   Param,
   Optional,
   Query,
@@ -38,6 +36,7 @@ import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 import { CommonService } from '../common/common.service';
 import { ValidationPipe } from '@nestjs/common';
 import { Role, Roles, RolesGuard } from 'src/common/roles';
+import { handleErrors } from 'src/common/handlers';
 
 @ApiTags('session')
 @Controller('session')
@@ -135,20 +134,14 @@ export class SessionController {
     description: 'Unexpected server error',
   })
   async addSession(@Body() addSessionDTOs: AddSessionRequestDTO[]) {
-    try {
+    return handleErrors(async () => {
       await this.sessionService.addSessions(addSessionDTOs);
 
       return {
         status: 201,
         message: `Успішно додано ${addSessionDTOs.length} сесій`,
       };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 
   @Get('by-movie/:movie_id')
@@ -494,7 +487,7 @@ export class SessionController {
     @Param('session_id') session_id: string,
     @Body() dto: UpdateSessionRequestDTO,
   ) {
-    try {
+    return handleErrors(async () => {
       if (!this.commonService.isValidId(session_id)) {
         throw new BadRequestException('Некоректний id сеансу!');
       }
@@ -510,16 +503,7 @@ export class SessionController {
 
       await this.sessionService.updateSession(sessionId, dto);
       return { status: 200, message: 'Інфо про сеанс оновлено успішно!' };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -587,7 +571,7 @@ export class SessionController {
     },
   })
   async deleteSession(@Param('session_id') session_id: string) {
-    try {
+    return handleErrors(async () => {
       if (!this.commonService.isValidId(session_id)) {
         throw new BadRequestException('Некоректний id сеансу!');
       }
@@ -599,18 +583,6 @@ export class SessionController {
 
       await this.sessionService.deleteById(sessionId);
       return { status: 200, message: 'Сеанс видалено успішно!' };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof ForbiddenException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 }

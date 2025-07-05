@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Put,
-  Body,
-  BadRequestException,
-  NotFoundException,
-  InternalServerErrorException,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Put, Body, UseGuards } from '@nestjs/common';
 import {
   ApiOperation,
   ApiBearerAuth,
@@ -21,6 +13,7 @@ import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { SessionService } from './session.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { Role, Roles, RolesGuard } from 'src/common/roles';
+import { handleErrors } from 'src/common/handlers';
 
 @Controller('sessions')
 export class SessionsController {
@@ -304,22 +297,13 @@ export class SessionsController {
     },
   })
   async updateSessions(@Body() dtos: UpdateSessionsRequestDTO[]) {
-    try {
+    return handleErrors(async () => {
       await this.sessionService.updateSessions(dtos);
 
       return {
         status: 200,
         message: `Інформацію про сеанси оновлено успішно!`,
       };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 }

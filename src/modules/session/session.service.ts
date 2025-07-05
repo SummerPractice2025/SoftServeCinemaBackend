@@ -59,7 +59,7 @@ export class SessionService {
 
     const sessionsToCreate = dtos.map((dto) => ({
       movie_id: dto.movieID,
-      date: fromZonedTime(new Date(dto.date), TIME_FORMAT),
+      date: fromZonedTime(new Date(dto.date), TIME_ZONE),
       price: Number(dto.price),
       price_VIP: Number(dto.priceVIP),
       hall_id: dto.hallID,

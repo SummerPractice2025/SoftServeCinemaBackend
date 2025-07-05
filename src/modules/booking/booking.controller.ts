@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Post,
-  UseGuards,
-  Request,
-  Body,
-  BadRequestException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Controller, Post, UseGuards, Request, Body } from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
@@ -20,6 +12,7 @@ import { BookingService } from './booking.service';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { User } from 'generated/prisma';
 import { AddBookingRequestDTO } from './dto/add-booking.dto';
+import { handleErrors } from 'src/common/handlers';
 
 @ApiTags('booking')
 @Controller('booking')
@@ -88,14 +81,8 @@ export class BookingController {
     @Body() addBokingDTOs: AddBookingRequestDTO[],
     @Request() req: { user: User },
   ) {
-    try {
-      return this.bookingService.bookSeats(req.user.id, addBokingDTOs);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    return handleErrors(async () => {
+      await this.bookingService.bookSeats(req.user.id, addBokingDTOs);
+    });
   }
 }
