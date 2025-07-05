@@ -1,4 +1,13 @@
-import { Controller, Post, Body, UseGuards, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Query,
+  Body,
+  UseGuards,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignInRequestDTO, SignUpRequestDTO } from './dto/user.dto';
 import { RefreshTokenGuard } from 'src/guards/RefreshTokenGuard';
@@ -13,11 +22,15 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
+import { EmailService } from '../email/email.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Post('sign-up')
   @ApiOperation({ description: 'User registration (sign up)' })
@@ -112,5 +125,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.authService.refresh(req, res);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string, @Res() res: Response) {
+    return res.redirect(await this.authService.verifyEmail(token));
   }
 }
