@@ -6,6 +6,7 @@ import { SessionService } from '../session/session.service';
 import { HallsService } from '../halls/halls.service';
 import { formatInTimeZone } from 'date-fns-tz';
 import { UserBookingsDTO } from '../user/dto/get-user-by-id.dto';
+import { TIME_ZONE, TIME_FORMAT } from 'src/common/constants';
 
 @Injectable()
 export class BookingService {
@@ -91,8 +92,6 @@ export class BookingService {
       },
     });
 
-    const tZ = 'Europe/Kyiv';
-
     return bookings.map((b) =>
       Object.assign(new UserBookingsDTO(), {
         seatRow: b.row_x,
@@ -100,7 +99,7 @@ export class BookingService {
         isVIP: b.is_VIP,
         movieName: b.session.movie.name,
         moviePosterUrl: b.session.movie.thumbnail_url,
-        date: formatInTimeZone(b.session.date, tZ, 'yyyy-MM-dd HH:mm:ss'),
+        date: formatInTimeZone(b.session.date, TIME_ZONE, TIME_FORMAT),
       }),
     );
   }

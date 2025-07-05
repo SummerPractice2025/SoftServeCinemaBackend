@@ -14,10 +14,11 @@ import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { HallsService } from '../halls/halls.service';
 import { CommonService } from '../common/common.service';
-
-const BREAK_BUFFER_MINUTES = 15;
-const TIME_ZONE = 'Europe/Kyiv';
-const TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
+import {
+  TIME_FORMAT,
+  TIME_ZONE,
+  BREAK_BUFFER_MINUTES,
+} from 'src/common/constants';
 
 type CustomPrismaClient = PrismaClient | Prisma.TransactionClient;
 
@@ -58,7 +59,7 @@ export class SessionService {
 
     const sessionsToCreate = dtos.map((dto) => ({
       movie_id: dto.movieID,
-      date: fromZonedTime(new Date(dto.date), 'Europe/Kyiv'),
+      date: fromZonedTime(new Date(dto.date), TIME_FORMAT),
       price: Number(dto.price),
       price_VIP: Number(dto.priceVIP),
       hall_id: dto.hallID,

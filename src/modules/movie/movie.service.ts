@@ -17,6 +17,7 @@ import { fromZonedTime } from 'date-fns-tz';
 import { CommonService } from '../common/common.service';
 import { HallsService } from '../halls/halls.service';
 import { SessionService } from '../session/session.service';
+import { TIME_ZONE } from 'src/common/constants';
 
 @Injectable()
 export class MovieService {
@@ -197,7 +198,6 @@ export class MovieService {
       age_rate_id,
       ...movieData
     } = dto;
-    const tz = 'Europe/Kyiv';
 
     const movie = await prismaClient.movie.findFirst({
       where: {
@@ -301,7 +301,7 @@ export class MovieService {
           description: movieData.description,
           duration: movieData.duration,
           year: movieData.year,
-          expires_at: fromZonedTime(maxDate, tz),
+          expires_at: fromZonedTime(maxDate, TIME_ZONE),
           created_at: new Date(),
           thumbnail_url: movieData.poster_url,
           trailer_url: movieData.trailer_url,
@@ -320,7 +320,7 @@ export class MovieService {
         await tx.session.create({
           data: {
             movie: { connect: { id: movie.id } },
-            date: fromZonedTime(parsed, tz),
+            date: fromZonedTime(parsed, TIME_ZONE),
             price: session.price,
             price_VIP: session.priceVIP,
             hall: { connect: { id: session.hallID } },
