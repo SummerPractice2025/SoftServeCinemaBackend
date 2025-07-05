@@ -112,7 +112,7 @@ export class SessionController {
         summary: 'Movie not found',
         value: {
           statusCode: 400,
-          message: 'Фільм з ID 42 не знайдено',
+          message: 'Фільм не знайдено',
           error: 'Bad Request',
         },
       },

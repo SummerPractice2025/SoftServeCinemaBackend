@@ -94,7 +94,7 @@ export class MovieController {
       type: 'object',
       example: {
         statusCode: 404,
-        message: 'Фільм з ID 1 не знайдено',
+        message: 'Фільм не знайдено',
         error: 'Not Found',
       },
     },

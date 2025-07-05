@@ -54,7 +54,7 @@ export class MovieService {
     });
 
     if (!movie) {
-      throw new NotFoundException(`Фільм з ID ${movieID} не знайдено`);
+      throw new NotFoundException(`Фільм не знайдено`);
     }
 
     const rating = await this.tmdbService.getMovieRating(
