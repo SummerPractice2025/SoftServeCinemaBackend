@@ -341,7 +341,7 @@ export class SessionService {
     if (dtos.length === 0) return;
 
     const uniqueDates = new Set(
-      dtos.map((dto) => new Date(dto.date).toISOString()),
+      dtos.map((dto) => `${dto.hallID}|${new Date(dto.date).toISOString()}`),
     );
     if (uniqueDates.size !== dtos.length) {
       throw new BadRequestException('Усі сеанси повинні мати унікальні дати.');
