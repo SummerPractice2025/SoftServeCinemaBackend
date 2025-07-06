@@ -204,7 +204,7 @@ export class SessionService {
   ): Promise<GetSessionByIdResponseDTO | null> {
     const exists = await this.existsById(session_id);
     if (!exists) {
-      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+      throw new NotFoundException(`Даний сеанс не знайдено!`);
     }
     const session = await prismaClient.session.findUnique({
       where: { id: session_id },
@@ -247,7 +247,7 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new NotFoundException(`Сеанс із ID ${sessionID} не знайдено.`);
+      throw new NotFoundException(`Даний сеанс не знайдено!`);
     }
 
     return session;
@@ -534,7 +534,7 @@ export class SessionService {
       TIME_FORMAT,
     );
 
-    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate} (Фільм '${overlappingMovieInfo.name}'; хронометраж: ${overlappingMovieInfo.duration} хв.})`;
+    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate} (Фільм '${overlappingMovieInfo.name}', хронометраж: ${overlappingMovieInfo.duration} хв.})`;
   }
 
   async deleteById(session_id: number): Promise<void> {
@@ -594,7 +594,7 @@ export class SessionService {
     if (dto.hall_id !== undefined) {
       const hallExists = await this.hallsService.existsById(dto.hall_id);
       if (!hallExists) {
-        throw new BadRequestException(`Зал із id ${dto.hall_id} не знайдено!`);
+        throw new BadRequestException(`Дану залу не знайдено!`);
       }
       updateData.hall = { connect: { id: dto.hall_id } };
     }
@@ -603,9 +603,7 @@ export class SessionService {
         dto.session_type_id,
       );
       if (!sessionTypeExists) {
-        throw new BadRequestException(
-          `Тип сеансу із id ${dto.session_type_id} не знайдено!`,
-        );
+        throw new BadRequestException(`Даний тип сеансу не знайдено!`);
       }
       updateData.sessionType = { connect: { id: dto.session_type_id } };
     }

@@ -112,7 +112,7 @@ export class UserController {
         summary: 'Not found error example',
         value: {
           statusCode: 404,
-          message: 'Користувача з id 123 не знайдено!',
+          message: 'Даного користувача не знайдено!',
         },
       },
     },
@@ -142,7 +142,7 @@ export class UserController {
 
       const exists = await this.userService.isExist(id);
       if (!exists) {
-        throw new NotFoundException(`Користувача з id ${id} не знайдено!`);
+        throw new NotFoundException(`Даного користувача не знайдено!`);
       }
 
       const user = await this.userService.findById(id);

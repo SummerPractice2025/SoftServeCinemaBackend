@@ -19,7 +19,7 @@ export class HallsService {
     });
 
     if (!hall) {
-      throw new NotFoundException(`Зал з ID ${hallID} не знайдено`);
+      throw new NotFoundException(`Дану залу не знайдено!`);
     }
 
     return hall;

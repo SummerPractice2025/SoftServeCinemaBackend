@@ -8,6 +8,7 @@ import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { SessionService } from './session.service';
@@ -15,6 +16,7 @@ import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { Role, Roles, RolesGuard } from 'src/common/roles';
 import { handleErrors } from 'src/common/handlers';
 
+@ApiTags('sessions')
 @Controller('sessions')
 export class SessionsController {
   constructor(private readonly sessionService: SessionService) {}
@@ -220,7 +222,7 @@ export class SessionsController {
             summary: 'Hall not found',
             value: {
               statusCode: 400,
-              message: 'Зал із id 999 не знайдено!',
+              message: 'Дану залу не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -236,7 +238,7 @@ export class SessionsController {
             summary: 'Session type not found',
             value: {
               statusCode: 400,
-              message: 'Тип сеансу із id 999 не знайдено!',
+              message: 'Даний тип сеансу не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -278,7 +280,7 @@ export class SessionsController {
       'application/json': {
         example: {
           statusCode: 404,
-          message: 'Сеанс із id 123 не знайдено!',
+          message: 'Даний сеанс не знайдено!',
           error: 'Not Found',
         },
       },

@@ -365,7 +365,7 @@ export class MovieController {
             summary: 'Invalid age rate ID',
             value: {
               statusCode: 400,
-              message: 'Віковий рейтинг із id 999 не знайдено!',
+              message: 'Даний віковий рейтинг не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -373,7 +373,7 @@ export class MovieController {
             summary: 'Invalid hall ID in sessions',
             value: {
               statusCode: 400,
-              message: 'Зал із id 999 не знайдено!',
+              message: 'Дану залу не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -381,7 +381,7 @@ export class MovieController {
             summary: 'Invalid session type ID in sessions',
             value: {
               statusCode: 400,
-              message: 'Тип сеансу із id 999 не знайдено!',
+              message: 'Даний тип сеансу не знайдено!',
               error: 'Bad Request',
             },
           },

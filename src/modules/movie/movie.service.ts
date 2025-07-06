@@ -218,26 +218,20 @@ export class MovieService {
 
     const ageRateExists = await this.ageRatesService.existsById(age_rate_id);
     if (!ageRateExists) {
-      throw new BadRequestException(
-        `Віковий рейтинг із id ${age_rate_id} не знайдено!`,
-      );
+      throw new BadRequestException(`Даний віковий рейтинг не знайдено!`);
     }
 
     for (const session of sessions) {
       const hallExists = await this.hallsService.existsById(session.hallID);
       if (!hallExists) {
-        throw new BadRequestException(
-          `Зал із id ${session.hallID} не знайдено!`,
-        );
+        throw new BadRequestException(`Дану залу не знайдено!`);
       }
 
       const sessionTypeExists = await this.existsSessionTypeById(
         session.sessionTypeID,
       );
       if (!sessionTypeExists) {
-        throw new BadRequestException(
-          `Тип сеансу із id ${session.sessionTypeID} не знайдено!`,
-        );
+        throw new BadRequestException(`Даний тип сеансу не знайдено!`);
       }
     }
 

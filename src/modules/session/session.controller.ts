@@ -121,7 +121,7 @@ export class SessionController {
         value: {
           statusCode: 400,
           message:
-            'Сеанс о 2025-06-28 16:00:00 у залі Зал 2 конфліктує з сеансом о 2025-06-28 15:30:00',
+            "Сеанс о 2025-06-28 16:00:00 у залі Зал 2 конфліктує з сеансом о 2025-06-28 15:30:00 (Фільм 'Супермен', хронометраж: 130 хв.)",
           error: 'Bad Request',
         },
       },
@@ -211,17 +211,20 @@ export class SessionController {
   @ApiOkResponse({
     description: 'Session info',
     type: GetSessionByIdResponseDTO,
-    schema: {
-      example: {
-        hall_name: 'Red Hall',
-        date_time: '2025-07-01 18:00:00',
-        price: 120.0,
-        price_VIP: 200.0,
-        session_type_id: 2,
-        seats: [
-          { is_VIP: false, is_booked: false, row: 1, col: 1 },
-          { is_VIP: true, is_booked: true, row: 1, col: 2 },
-        ],
+    examples: {
+      'application/json': {
+        summary: '200 OK response',
+        value: {
+          hall_name: 'Red Hall',
+          date_time: '2025-07-01 18:00:00',
+          price: 120.0,
+          price_VIP: 200.0,
+          session_type_id: 2,
+          seats: [
+            { is_VIP: false, is_booked: true, row: 1, col: 1 },
+            { is_VIP: true, is_booked: true, row: 1, col: 2 },
+          ],
+        },
       },
     },
   })
@@ -230,7 +233,7 @@ export class SessionController {
     schema: {
       example: {
         statusCode: 404,
-        message: 'Сеанс із id 123 не знайдено!',
+        message: 'Даний сеанс не знайдено!',
         error: 'Not Found',
       },
     },
@@ -253,7 +256,7 @@ export class SessionController {
       Number(session_id),
     );
     if (!sessionInfo) {
-      throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+      throw new NotFoundException(`Даний сеанс не знайдено!`);
     }
     return sessionInfo;
   }
@@ -406,7 +409,7 @@ export class SessionController {
             summary: 'Hall not found',
             value: {
               statusCode: 400,
-              message: 'Зал із id 999 не знайдено!',
+              message: 'Дану залу не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -422,7 +425,7 @@ export class SessionController {
             summary: 'Session type not found',
             value: {
               statusCode: 400,
-              message: 'Тип сеансу із id 999 не знайдено!',
+              message: 'Даний тип сеансу не знайдено!',
               error: 'Bad Request',
             },
           },
@@ -464,7 +467,7 @@ export class SessionController {
       'application/json': {
         example: {
           statusCode: 404,
-          message: 'Сеанс із id 123 не знайдено!',
+          message: 'Даний сеанс не знайдено!',
           error: 'Not Found',
         },
       },
@@ -494,7 +497,7 @@ export class SessionController {
       const sessionId = Number(session_id);
 
       if (!(await this.sessionService.existsById(sessionId))) {
-        throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+        throw new NotFoundException(`Даний сеанс не знайдено!`);
       }
 
       if (this.commonService.isDtoEmpty(dto)) {
@@ -555,7 +558,7 @@ export class SessionController {
     schema: {
       example: {
         statusCode: 404,
-        message: 'Сеанс із id 12 не знайдено!',
+        message: 'Даний сеанс не знайдено!',
         error: 'Not Found',
       },
     },
@@ -578,7 +581,7 @@ export class SessionController {
       const sessionId = Number(session_id);
 
       if (!(await this.sessionService.existsById(sessionId))) {
-        throw new NotFoundException(`Сеанс із id ${session_id} не знайдено!`);
+        throw new NotFoundException(`Даний сеанс не знайдено!`);
       }
 
       await this.sessionService.deleteById(sessionId);
