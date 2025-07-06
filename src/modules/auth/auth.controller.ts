@@ -23,6 +23,7 @@ import {
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { EmailService } from '../email/email.service';
+import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -74,7 +75,7 @@ export class AuthController {
     return this.authService.signIn(dto, res);
   }
 
-  @UseGuards(RefreshTokenGuard)
+  @UseGuards(AccessTokenGuard)
   @Post('sign-out')
   @ApiOperation({ description: 'User logout (sign out)' })
   @ApiOkResponse({
