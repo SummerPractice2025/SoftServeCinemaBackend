@@ -82,7 +82,7 @@ export class BookingController {
     @Request() req: { user: User },
   ) {
     return handleErrors(async () => {
-      await this.bookingService.bookSeats(req.user.id, addBokingDTOs);
+      return await this.bookingService.bookSeats(req.user.id, addBokingDTOs);
     });
   }
 }

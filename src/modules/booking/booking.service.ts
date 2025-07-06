@@ -87,6 +87,7 @@ export class BookingService {
           select: {
             movie: { select: { name: true, thumbnail_url: true } },
             date: true,
+            hall_id: true,
           },
         },
       },
@@ -98,6 +99,7 @@ export class BookingService {
         seatCol: b.col_y,
         isVIP: b.is_VIP,
         movieName: b.session.movie.name,
+        hallID: b.session.hall_id,
         moviePosterUrl: b.session.movie.thumbnail_url,
         date: formatInTimeZone(b.session.date, TIME_ZONE, TIME_FORMAT),
       }),
