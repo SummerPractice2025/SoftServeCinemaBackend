@@ -13,3 +13,141 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// Prisma schema generated from your SQL structure
+// Save this in your `schema.prisma` file
+
+model Actor {
+  id         Int                 @id @default(autoincrement())
+  first_name String
+  last_name  String
+  movies     MovieActorRelation[]
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique @db.VarChar(256)
+  password      String    @db.VarChar(256)
+  first_name    String
+  last_name     String
+  verified      Boolean   @default(false)
+  refresh_token String?
+  is_admin      Boolean   @default(false)
+  bookings      Booking[]
+}
+
+model Genre {
+  id     Int                   @id @default(autoincrement())
+  name   String
+  movies MovieGenreRelation[]
+}
+
+model Rate {
+  id     Int     @id @default(autoincrement())
+  rate   String  @db.VarChar(4)
+  movies Movie[]
+}
+
+model Movie {
+  id           Int                    @id @default(autoincrement())
+  name         String                 @db.Text
+  description  String                 @db.Text
+  rate_id      Int
+  duration     Float
+  created_at   DateTime
+  expires_at   DateTime
+  thumbnail_url String                @db.Text
+  trailer_url  String                 @db.Text
+  year         Int
+  rate         Rate                   @relation(fields: [rate_id], references: [id])
+  sessions     Session[]
+  actors       MovieActorRelation[]
+  directors    MovieDirectorRelation[]
+  genres       MovieGenreRelation[]
+  studios      MovieStudioRelation[]
+}
+
+model Session {
+  id              Int         @id @default(autoincrement())
+  movie_id        Int
+  date            DateTime
+  price           Float
+  price_VIP       Float
+  hall_id         Int
+  session_type_id Int
+  is_deleted      Boolean     @default(false)
+  movie           Movie       @relation(fields: [movie_id], references: [id])
+  hall            Hall        @relation(fields: [hall_id], references: [id])
+  sessionType     SessionType @relation(fields: [session_type_id], references: [id])
+  bookings        Booking[]
+}
+
+model MovieActorRelation {
+  id        Int   @id @default(autoincrement())
+  movie_id  Int
+  actor_id  Int
+  movie     Movie @relation(fields: [movie_id], references: [id])
+  actor     Actor @relation(fields: [actor_id], references: [id])
+}
+
+model Hall {
+  id       Int      @id @default(autoincrement())
+  name     String   @db.VarChar(8)
+  rows     Int
+  cols     Int
+  sessions Session[]
+}
+
+model Booking {
+  id         Int     @id @default(autoincrement())
+  user_id    Int
+  row_x      Int
+  col_y      Int
+  session_id Int
+  is_VIP     Boolean @default(false)
+  user       User    @relation(fields: [user_id], references: [id])
+  session    Session @relation(fields: [session_id], references: [id])
+}
+
+model SessionType {
+  id       Int      @id @default(autoincrement())
+  type     String   @db.VarChar(8)
+  sessions Session[]
+}
+
+model Director {
+  id         Int                     @id @default(autoincrement())
+  first_name String
+  last_name  String
+  movies     MovieDirectorRelation[]
+}
+
+model MovieDirectorRelation {
+  id          Int     @id @default(autoincrement())
+  movie_id    Int
+  director_id Int
+  movie       Movie   @relation(fields: [movie_id], references: [id])
+  director    Director @relation(fields: [director_id], references: [id])
+}
+
+model MovieGenreRelation {
+  id       Int    @id @default(autoincrement())
+  movie_id Int
+  genre_id Int
+  movie    Movie  @relation(fields: [movie_id], references: [id])
+  genre    Genre  @relation(fields: [genre_id], references: [id])
+}
+
+model Studio {
+  id     Int                   @id @default(autoincrement())
+  name   String
+  movies MovieStudioRelation[]
+}
+
+model MovieStudioRelation {
+  id        Int    @id @default(autoincrement())
+  movie_id  Int
+  studio_id Int
+  movie     Movie  @relation(fields: [movie_id], references: [id])
+  studio    Studio @relation(fields: [studio_id], references: [id])
+}
