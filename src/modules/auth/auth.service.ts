@@ -44,7 +44,7 @@ export class AuthService {
 
     if (
       !user ||
-      !(await this.cryptoService.verifyPassword(dto.password, user.password))
+      !(await this.cryptoService.verifyPassword(user.password, dto.password))
     ) {
       throw new ForbiddenException(`Неправильний пароль або email.`);
     }
