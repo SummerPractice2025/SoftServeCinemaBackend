@@ -11,10 +11,10 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle('SSienma')
-    .setDescription('The SSinema project API description')
+    .setTitle('SoftServeCinema')
+    .setDescription('The SoftServeCinema project API description')
     .setVersion('1.0')
-    .addTag('ssinema')
+    // .addTag('ssinema')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
