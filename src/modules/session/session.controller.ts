@@ -137,7 +137,11 @@ export class SessionController {
   async addSession(@Body() addSessionDTOs: AddSessionRequestDTO[]) {
     try {
       await this.sessionService.addSessions(addSessionDTOs);
-      return `Успішно додано ${addSessionDTOs.length} сесій`;
+
+      return {
+        status: 201,
+        message: `Успішно додано ${addSessionDTOs.length} сесій`,
+      };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
