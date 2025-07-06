@@ -9,13 +9,14 @@ import {
 } from 'class-validator';
 import { Movie, Genre, Session, SessionType } from 'generated/prisma';
 import { toZonedTime, format } from 'date-fns-tz';
+import { TIME_ZONE, TIME_FORMAT } from 'src/common/constants';
 
 export class ClosestSessionDTO {
   constructor(closestSession: Session, sessionType: SessionType) {
     this.id = closestSession.id;
     this.date = format(
-      toZonedTime(closestSession.date, 'Europe/Kyiv'),
-      'yyyy-MM-dd HH:mm:ss',
+      toZonedTime(closestSession.date, TIME_ZONE),
+      TIME_FORMAT,
     );
     this.type = sessionType.type;
   }

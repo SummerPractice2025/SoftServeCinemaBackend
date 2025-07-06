@@ -9,10 +9,6 @@ import {
   HttpCode,
   HttpStatus,
   Body,
-  BadRequestException,
-  InternalServerErrorException,
-  Request,
-  NotFoundException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -39,9 +35,9 @@ import {
 } from './dto/get-movie.dto';
 import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { UpdateMovieRespDto } from './dto/update-movie-by-id.dto';
-import { User } from 'generated/prisma';
 import { AddMovieRequestDTO } from './dto/add-movie.dto';
 import { Role, Roles, RolesGuard } from 'src/common/roles';
+import { handleErrors } from 'src/common/handlers';
 
 @ApiTags('movie')
 @Controller('movie')
@@ -98,7 +94,7 @@ export class MovieController {
       type: 'object',
       example: {
         statusCode: 404,
-        message: 'Фільм з ID 1 не знайдено',
+        message: 'Фільм не знайдено',
         error: 'Not Found',
       },
     },
@@ -184,26 +180,17 @@ export class MovieController {
   })
   async updateMovie(
     @Body() dto: UpdateMovieRespDto,
-    @Request() req: { user: User },
     @Param('movie_id') id: string,
   ) {
-    try {
+    return handleErrors(async () => {
       await this.movieService.updateMovieById(Number(id), dto);
+
       return {
         status: 200,
         message: 'Інфо про фільм оновлено успішно!',
-        data: { movie_id: Number(id) },
+        data: { movie_id: id },
       };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -469,22 +456,14 @@ export class MovieController {
     },
   })
   async createMovie(@Body() dto: AddMovieRequestDTO) {
-    try {
+    return handleErrors(async () => {
       const result = await this.movieService.createMovie(dto);
+
       return {
         status: 201,
         message: 'Фільм створено успішно!',
         data: result,
       };
-    } catch (error) {
-      console.error('Movie creation error:', error);
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Виникла неочікувана помилка.');
-    }
+    });
   }
 }

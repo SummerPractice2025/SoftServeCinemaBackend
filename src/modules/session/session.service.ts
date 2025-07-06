@@ -14,17 +14,23 @@ import { UpdateSessionRequestDTO } from './dto/update-session-by-id.dto';
 import { UpdateSessionsRequestDTO } from './dto/update-sessions.dto';
 import { HallsService } from '../halls/halls.service';
 import { CommonService } from '../common/common.service';
-
-const BREAK_BUFFER_MINUTES = 15;
-const TIME_ZONE = 'Europe/Kyiv';
-const TIME_FORMAT = 'yyyy-MM-dd HH:mm:ss';
+import {
+  TIME_FORMAT,
+  TIME_ZONE,
+  BREAK_BUFFER_MINUTES,
+} from 'src/common/constants';
 
 type CustomPrismaClient = PrismaClient | Prisma.TransactionClient;
+
+type MovieInfo = {
+  duration: number;
+  name: string;
+};
 
 type SessionTimeSlotValidationInfo = {
   hallID: number;
   startUTC: Date;
-  duration: number;
+  movieInfo: MovieInfo;
   sessionID?: number;
 };
 
@@ -58,7 +64,7 @@ export class SessionService {
 
     const sessionsToCreate = dtos.map((dto) => ({
       movie_id: dto.movieID,
-      date: fromZonedTime(new Date(dto.date), 'Europe/Kyiv'),
+      date: fromZonedTime(new Date(dto.date), TIME_ZONE),
       price: Number(dto.price),
       price_VIP: Number(dto.priceVIP),
       hall_id: dto.hallID,
@@ -350,9 +356,11 @@ export class SessionService {
 
       const sessionStartUTC = fromZonedTime(new Date(dto.date), TIME_ZONE);
 
+      const movieInfo = await this.getMovieInfo(dto.movieID, prisma);
+
       let duration = movieDurations.get(dto.movieID);
       if (duration === undefined) {
-        duration = await this.getMovieDuration(dto.movieID, prisma);
+        duration = movieInfo.duration;
         movieDurations.set(dto.movieID, duration);
       }
 
@@ -362,7 +370,7 @@ export class SessionService {
       sessionsByHall.get(dto.hallID)!.push({
         hallID: dto.hallID,
         startUTC: sessionStartUTC,
-        duration,
+        movieInfo,
       });
     }
 
@@ -388,7 +396,7 @@ export class SessionService {
       },
       select: {
         date: true,
-        movie: { select: { duration: true } },
+        movie: { select: { duration: true, name: true } },
       },
     });
 
@@ -403,6 +411,10 @@ export class SessionService {
             info.hallID,
             info.startUTC,
             previousSession.date,
+            {
+              name: previousSession.movie.name,
+              duration: previousSession.movie.duration,
+            },
             prisma,
           ),
         );
@@ -423,14 +435,14 @@ export class SessionService {
       },
       select: {
         date: true,
-        movie: { select: { duration: true } },
+        movie: { select: { duration: true, name: true } },
       },
     });
 
     if (nextSession) {
       const newSessionEnd = this.addMinutes(
         info.startUTC,
-        info.duration + BREAK_BUFFER_MINUTES,
+        info.movieInfo.duration + BREAK_BUFFER_MINUTES,
       );
       if (newSessionEnd > nextSession.date) {
         throw new BadRequestException(
@@ -438,6 +450,10 @@ export class SessionService {
             info.hallID,
             info.startUTC,
             nextSession.date,
+            {
+              name: nextSession.movie.name,
+              duration: nextSession.movie.duration,
+            },
             prisma,
           ),
         );
@@ -459,7 +475,7 @@ export class SessionService {
 
         const prevEnd = this.addMinutes(
           prev.startUTC,
-          prev.duration + BREAK_BUFFER_MINUTES,
+          prev.movieInfo.duration + BREAK_BUFFER_MINUTES,
         );
 
         if (curr.startUTC < prevEnd) {
@@ -468,6 +484,7 @@ export class SessionService {
               hallID,
               prev.startUTC,
               curr.startUTC,
+              curr.movieInfo,
               prisma,
             ),
           );
@@ -498,6 +515,7 @@ export class SessionService {
     hallID: number,
     currentSessionDateUTC: Date,
     overlappingSessionDateUTC: Date,
+    overlappingMovieInfo: MovieInfo,
     prisma: CustomPrismaClient = prismaClient,
   ) {
     const hall = await prisma.hall.findUnique({
@@ -516,7 +534,7 @@ export class SessionService {
       TIME_FORMAT,
     );
 
-    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate}`;
+    return `Сеанс о ${currentSessionDate} у залі ${hall?.name ?? ' '} конфліктує з сеансом о ${overlappingSessionDate} (Фільм '${overlappingMovieInfo.name}'; хронометраж: ${overlappingMovieInfo.duration} хв.})`;
   }
 
   async deleteById(session_id: number): Promise<void> {
@@ -530,19 +548,22 @@ export class SessionService {
     });
   }
 
-  private async getMovieDuration(
+  private async getMovieInfo(
     movieID: number,
     prisma: CustomPrismaClient = prismaClient,
-  ) {
+  ): Promise<MovieInfo> {
     const movie = await prisma.movie.findUnique({
       where: { id: movieID },
-      select: { duration: true },
+      select: { duration: true, name: true },
     });
     if (!movie) {
-      throw new NotFoundException(`Фільм з ID ${movieID} не знайдено`);
+      throw new NotFoundException(`Фільм не знайдено`);
     }
 
-    return movie.duration;
+    return {
+      name: movie.name,
+      duration: movie.duration,
+    };
   }
 
   private async getSessionUpdateData(
@@ -561,7 +582,7 @@ export class SessionService {
       validationInfo = {
         startUTC: updateData.date,
         hallID: session.hall_id,
-        duration: await this.getMovieDuration(session.movie_id),
+        movieInfo: await this.getMovieInfo(session.movie_id),
       };
     }
     if (dto.price !== undefined) {

@@ -2,7 +2,6 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  InternalServerErrorException,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -28,6 +27,7 @@ import {
   UserSessnsCredsRespDTO,
 } from './dto/get-user-by-id.dto';
 import { User } from 'generated/prisma';
+import { handleErrors } from 'src/common/handlers';
 
 @ApiTags('user')
 @Controller('user')
@@ -120,7 +120,7 @@ export class UserController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: User },
   ): Promise<UserSessnsCredsRespDTO> {
-    try {
+    return handleErrors(async () => {
       if (req.user.id !== id) {
         throw new ForbiddenException(
           'Доступ заборонено. Перегляд інфо тільки за своїм id.',
@@ -139,14 +139,6 @@ export class UserController {
         await this.bookingService.getBookingsByUserId(id);
 
       return new UserSessnsCredsRespDTO(credsDto, bookingsDto);
-    } catch (err) {
-      if (
-        err instanceof NotFoundException ||
-        err instanceof ForbiddenException
-      ) {
-        throw err;
-      }
-      throw new InternalServerErrorException();
-    }
+    });
   }
 }

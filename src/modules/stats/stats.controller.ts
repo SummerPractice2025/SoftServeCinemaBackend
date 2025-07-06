@@ -4,9 +4,6 @@ import {
   Get,
   ParseIntPipe,
   Query,
-  UnauthorizedException,
-  ForbiddenException,
-  InternalServerErrorException,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -29,6 +26,7 @@ import { GetHallOccupancyRespDTO } from './dto/get-halls-occupancy.dto';
 import { TopFilmsRevenueResp } from './dto/get-stats-top-money.dto';
 import { TopFilmsRespDTO } from './dto/get-stats-by-tickets.dto';
 import { Role, Roles, RolesGuard } from 'src/common/roles';
+import { handleErrors } from 'src/common/handlers';
 
 @ApiTags('stats')
 @Controller('stats')
@@ -134,7 +132,7 @@ export class StatsController {
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
     @Query('count', new ParseIntPipe({ optional: true })) count?: number,
   ): Promise<TopFilmsRespDTO> {
-    try {
+    return handleErrors(async () => {
       if (
         (days !== undefined && days < 1) ||
         (count !== undefined && count < 1)
@@ -143,16 +141,7 @@ export class StatsController {
       }
 
       return await this.statsService.getTopFilmsByTickets(days, count);
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Сталася неочікувана помилка.');
-    }
+    });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -225,22 +214,13 @@ export class StatsController {
   async getStatsMoney(
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<{ money: number }> {
-    try {
+    return handleErrors(async () => {
       if (days !== undefined && days < 1) {
         throw new BadRequestException('Query param error!');
       }
 
       return await this.statsService.getSumMoneyPerDay(days);
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Сталася неочікувана помилка.');
-    }
+    });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -328,22 +308,13 @@ export class StatsController {
   async getStatsTopMoney(
     @Query('count', new ParseIntPipe({ optional: true })) count?: number,
   ): Promise<TopFilmsRevenueResp> {
-    try {
+    return handleErrors(async () => {
       if (count !== undefined && count < 1) {
         throw new BadRequestException('Query param error!');
       }
 
       return this.statsService.getTopFilmsRevenueResp(count);
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Сталася неочікувана помилка.');
-    }
+    });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -424,20 +395,11 @@ export class StatsController {
   async getHallOccupancy(
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<GetHallOccupancyRespDTO> {
-    try {
+    return handleErrors(async () => {
       if (days !== undefined && days < 1) {
         throw new BadRequestException('Query param error!');
       }
       return await this.statsService.getHallOccupancy(days);
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Сталася неочікувана помилка.');
-    }
+    });
   }
 }
