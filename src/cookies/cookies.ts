@@ -14,7 +14,7 @@ export const cookieConfig = {
     options: {
       path: '/auth/refresh',
       httpOnly: true,
-      sameSite: 'none',
+      sameSite: 'none' as const,
       secure: true,
       maxAge: MAX_AGE,
     },
