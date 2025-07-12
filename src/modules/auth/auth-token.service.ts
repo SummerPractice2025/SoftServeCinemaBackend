@@ -59,7 +59,7 @@ export class AuthTokenService {
       { user_id: user.id },
       {
         secret: process.env.ACCESS_TOKEN_SECRET,
-        expiresIn: '15m',
+        expiresIn: '15s',
       },
     );
 
