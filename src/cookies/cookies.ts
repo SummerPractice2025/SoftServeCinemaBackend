@@ -12,7 +12,7 @@ export const cookieConfig = {
   refreshToken: {
     name: 'refreshToken',
     options: {
-      path: '/',
+      path: '/auth/refresh',
       httpOnly: true,
       sameSite: 'strict' as const,
       secure: true,
