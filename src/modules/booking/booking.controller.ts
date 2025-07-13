@@ -13,13 +13,14 @@ import { AccessTokenGuard } from 'src/guards/AccessTokenGuard';
 import { User } from 'generated/prisma';
 import { AddBookingRequestDTO } from './dto/add-booking.dto';
 import { handleErrors } from 'src/common/handlers';
+import { VerifiedGuard } from 'src/guards/VerifiedGuard';
 
 @ApiTags('booking')
 @Controller('booking')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, VerifiedGuard)
   @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Book seats for a session' })
