@@ -17,6 +17,7 @@ export const cookieConfig = {
       sameSite: 'strict' as const,
       secure: true,
       maxAge: MAX_AGE,
+      partitioned: true,
     },
   },
 };
