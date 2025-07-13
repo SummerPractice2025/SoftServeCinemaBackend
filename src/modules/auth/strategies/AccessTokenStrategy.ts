@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserService } from 'src/modules/user/user.service';
@@ -15,6 +15,12 @@ export class AccessTokenStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload): Promise<User> {
-    return await this.userService.findById(payload.user_id);
+    const user = await this.userService.findById(payload.user_id);
+
+    if (!user.verified) {
+      throw new ForbiddenException('Користувач не верифікований!');
+    }
+
+    return user;
   }
 }
